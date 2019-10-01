@@ -6,7 +6,6 @@ from utils import *
 import os
 import numpy as np
 
-import synth_data_utils
 
 
 class Prior(object):
