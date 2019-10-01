@@ -2,7 +2,6 @@ import argparse
 import torch
 torch.backends.cudnn.benchmark = True
 
-
 from trainer import Trainer
 
 
@@ -53,11 +52,3 @@ args = parser.parse_args()
 
 trainer = Trainer(args)
 trainer.train()
-
-
-
-
-
-
-
-

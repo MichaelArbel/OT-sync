@@ -1,5 +1,6 @@
 import torch as tr
 from kernel.base import BaseKernel
+
 from utils import pow_10, FDTYPE, DEVICE
 import utils
 
@@ -44,19 +45,11 @@ class Gaussian(BaseKernel):
 		sigma = pow_10(log_sigma,dtype=self.dtype,device=self.device)
 		tmp = self._square_dist( X, Y)
 		dist = tr.max(tmp,tr.zeros_like(tmp))
+
 		if len(dist.shape)>2:
 			return  tr.sum(tr.exp(-0.5*dist/sigma),dim=0)
 		else:
 			return  tr.exp(-0.5*dist/sigma)
-
-
-
-
-
-
-
-
-
 
 
 
