@@ -4,10 +4,10 @@ import math
 import numpy as np
 import scipy
 import networkx as nx
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import matplotlib.pylab as pl
-import matplotlib.animation as animation
+#import matplotlib.pyplot as plt
+#import matplotlib.ticker as ticker
+#import matplotlib.pylab as pl
+#import matplotlib.animation as animation
 from synth_data_utils import *
 from scipy.spatial.distance import cdist
 from sklearn import mixture
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     print ('Generating synthetic data. N=' +str(N)+ ', #modes='+ str(maxNumModes) +', numParticles=' + str(numParticles))
     
     synthData = create_synth_graph(N,numParticles,completeness,maxNumModes)
-    plot_synth_data(synthData)
+    #plot_synth_data(synthData)
         
     print ('This is one way to initialize the solutions by the random perturbations of the original')
     # initialize solution randomly

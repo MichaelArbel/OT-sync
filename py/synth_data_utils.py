@@ -61,7 +61,12 @@ def create_synth_graph(N,numParticles=16,completeness=1,maxNumModes=4):
         numPtsPerMode = np.int(numParticles/maxNumModes)
         for j in range(maxNumModes):
             xcur = np.random.normal(loc=0.0, scale=1.0,size=numPtsPerMode)
+            #if j < numModes:
+
+            #    X[k:k+numPtsPerMode] = xcur*vars[j] + mus[j]
+            #else:
             X[k:k+numPtsPerMode] = xcur
+
             k=k+numPtsPerMode
         
         Xs.append(X)
@@ -84,7 +89,7 @@ def create_synth_graph(N,numParticles=16,completeness=1,maxNumModes=4):
         
         r = cdist(xi.reshape(-1,1),xj.reshape(-1,1))
         r = np.reshape(r,r.shape[0]*r.shape[1],1)
-        y = np.matmul( yi.T,yj)
+        y = np.matmul(yi.T,yj)
         yw = np.matmul( ywi.T,ywj)
         y = np.reshape(y,y.shape[0]*y.shape[1],1)
         yw = np.reshape(yw,yw.shape[0]*yw.shape[1],1)
@@ -133,3 +138,8 @@ def plot_synth_data(synthData):
     fig.text(0.04, 0.5, 'Weights', va='center', rotation='vertical')
     fig.show()
     plt.show()
+
+
+
+
+

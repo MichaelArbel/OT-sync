@@ -1,0 +1,9 @@
+-e git+git@github.com:MichaelArbel/independent-jobs.git@2577c8cbe0b62168c1bdd056f15b118de956cc04#egg=independent_jobs
+-e git+git@github.com:MichaelArbel/kernel_jobs.git@5ead9edb87969a2b0367906dfa1c5666519f52bc#egg=kernel_jobs
+matplotlib==3.0.0
+numpy==1.17.0
+pandas==0.23.4
+Pillow==6.1.0
+scipy==1.2.1
+torch==1.2.0
+torchvision==0.4.0
