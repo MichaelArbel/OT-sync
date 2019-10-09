@@ -7,7 +7,7 @@ from trainer import Trainer
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-parser.add_argument('--log_dir', default = '/nfs/data/michaela/projects/MMD-flow/code/runs',type= str,  help='log directory for summaries and checkpoints')
+parser.add_argument('--log_dir', default = '',type= str,  help='log directory for summaries and checkpoints')
 parser.add_argument('--log_name', default = 'test',type= str,  help='log directory for summaries and checkpoints')
 parser.add_argument('--log_in_file', action='store_true',  help='log output in file ')
 
@@ -26,7 +26,7 @@ parser.add_argument('--scheduler',  default='ReduceLROnPlateau',  type=str,  hel
 parser.add_argument('--N', default = 45 ,type= int,  help='num cameras')
 
 parser.add_argument('--particles_type', default = 'quaternion' ,type= str,  help='gpu device')
-parser.add_argument('--num_particles', default = 100,type= int,  help='num_particles used in the algorithm')
+parser.add_argument('--num_particles', default = 100, type= int,  help='num_particles used in the algorithm')
 
 parser.add_argument('--prior', default='gaussian', type=str, help='sampler for the initial particles')
 
