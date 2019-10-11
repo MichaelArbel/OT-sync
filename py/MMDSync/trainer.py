@@ -159,7 +159,7 @@ def get_scheduler(args, optimizer):
 def save(writer,loss,particles,iteration, save_particles=True):
 
 	writer.add_scalars('data/',{"losses":loss},iteration)
-	if np.mod(iteration,5000)==0:
+	if np.mod(iteration,5)==0:
 		print('Saving checkpoint at iteration'+ str(iteration))
 		state = {
 			'particles': particles,
