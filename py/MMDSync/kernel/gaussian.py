@@ -34,9 +34,8 @@ class Gaussian(BaseKernel):
 			dist =  -2*tr.einsum('mr,nr->mn',X,Y) + tr.sum(X**2,1).unsqueeze(-1).repeat(1,n_y) +  tr.sum(Y**2,1).unsqueeze(0).repeat(n_x,1) #  tr.einsum('m,n->mn', tr.ones([ n_x],dtype=self.dtype, device = self.device),tr.sum(Y**2,1)) 
 			return dist
 		elif self.particles_type=='quaternion':
-			X = X.unsqueeze(1) - 0.*Y.unsqueeze(2)
-			Y = Y.unsqueeze(2) - 0.*X
-			return utils.quaternion_geodesic_distance(X,Y)**2
+			dist = 2*tr.acos(tr.abs(tr.einsum('...ki,...li->...kl',X,Y)))
+			return dist**2
 		else:
 			raise NotImplementedError()
 

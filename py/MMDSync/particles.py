@@ -69,7 +69,6 @@ class RelativeMeasureMap(nn.Module):
 		ratios = tr.stack(ratios,dim=0)
 		return ratios
 
-
 class QuaternionRelativeMeasureMap(RelativeMeasureMap):
 	def __init__(self,edges):
 		super(QuaternionRelativeMeasureMap,self).__init__(edges)
