@@ -52,12 +52,12 @@ class quaternion_SGD(Optimizer):
 			dampening = group['dampening']
 			nesterov = group['nesterov']
 
-			for p in group['params']:
-				if p.grad is None:
+			for i, param in enumerate(group['params']):
+				if param.grad is None:
 					continue
-				d_p = p.grad.data
+				d_p = param.grad.data
 				if weight_decay != 0:
-					d_p.add_(weight_decay, p.data)
+					d_p.add_(weight_decay, param.data)
 				if momentum != 0:
 					param_state = self.state[p]
 					if 'momentum_buffer' not in param_state:
@@ -66,9 +66,18 @@ class quaternion_SGD(Optimizer):
 						buf = param_state['momentum_buffer']
 						buf.mul_(momentum).add_(1 - dampening, d_p)
 					if nesterov:
-						d_p = d_p.add(momentum, buf)
+						d_p = d_param.add(momentum, buf)
 					else:
 						d_p = buf
-				v = - group['lr']* utils.quaternion_proj(p.data,d_p)
-				p.data = utils.quaternion_exp_map(p.data,v)
+				if i==0:
+					#v = - group['lr']* utils.quaternion_proj(param.data,d_p)
+					v = - group['lr']* d_p
+					param.data = utils.quaternion_exp_map(param.data,v, north_hemisphere=False)
+				else:
+					v = - group['lr']* utils.sphere_proj(param.data,d_p)
+					param.data = utils.sphere_exp_map(param.data,v, north_hemisphere=False)
+
+					#w_g = - group['lr']* (d_p - tr.sum(d_p,dim=-1).unsqueeze(-1))
+					#param.data = (param.data + w_g).clamp(0.)
+					#param.data = param.data/tr.sum(param.data, dim=-1).unsqueeze(-1)
 		return loss

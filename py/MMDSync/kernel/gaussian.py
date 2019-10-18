@@ -1,9 +1,10 @@
 import torch as tr
 from kernel.base import BaseKernel
 
-from utils import pow_10, FDTYPE, DEVICE
-import utils
 
+from utils import pow_10, FDTYPE, DEVICE, quaternion_geodesic_distance
+
+import utils
 
 class Gaussian(BaseKernel):
 	def __init__(self, D,  log_sigma, particles_type='euclidian', dtype = FDTYPE, device = DEVICE):
@@ -27,31 +28,30 @@ class Gaussian(BaseKernel):
 	def derivatives(self, X,Y):
 		return self._derivatives(self.params,X,Y)
 
-	def _square_dist(self,X, Y):
-		if self.particles_type=='euclidian':
-			n_x,d = X.shape
-			n_y,d = Y.shape
-			dist =  -2*tr.einsum('mr,nr->mn',X,Y) + tr.sum(X**2,1).unsqueeze(-1).repeat(1,n_y) +  tr.sum(Y**2,1).unsqueeze(0).repeat(n_x,1) #  tr.einsum('m,n->mn', tr.ones([ n_x],dtype=self.dtype, device = self.device),tr.sum(Y**2,1)) 
-			return dist
-		elif self.particles_type=='quaternion':
-			dist = 2*tr.acos(tr.abs(tr.einsum('...ki,...li->...kl',X,Y)))
-			return dist**2
-		else:
-			raise NotImplementedError()
+	def _dist(self,X, Y):
+		tmp = (X.unsqueeze(-2) - Y.unsqueeze(-3))**2
+		dist =  tr.sum(tmp,dim=-1)
+		return dist
 
 	def _kernel(self,log_sigma,X,Y):
 
 		sigma = pow_10(log_sigma,dtype=self.dtype,device=self.device)
-		tmp = self._square_dist( X, Y)
-		dist = tr.max(tmp,tr.zeros_like(tmp))
+		dist = self._dist( X, Y)
+		return  tr.exp(-dist/sigma)
 
-		if len(dist.shape)>2:
-			return  tr.sum(tr.exp(-0.5*dist/sigma),dim=0)
-		else:
-			return  tr.exp(-0.5*dist/sigma)
+class LaplaceQuaternionGeodesicDist(Gaussian):
+	def __init__(self, D,  log_sigma, particles_type='euclidian', dtype = FDTYPE, device = DEVICE):
+		Gaussian.__init__(self, D, log_sigma, particles_type=particles_type, dtype = dtype, device = device)
+	def _dist(self,X, Y):
+			return quaternion_geodesic_distance(X,Y)
 
 
 
+class GaussianQuaternionGeodesicDist(Gaussian):
+	def __init__(self, D,  log_sigma, particles_type='euclidian', dtype = FDTYPE, device = DEVICE):
+		Gaussian.__init__(self, D, log_sigma, particles_type=particles_type, dtype = dtype, device = device)
+	def _dist(self,X, Y):
+			return quaternion_geodesic_distance(X,Y)**2
 
 
 

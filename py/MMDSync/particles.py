@@ -18,12 +18,17 @@ class Particles(nn.Module):
 		
 		self.data = nn.Parameter(prior.sample(N,num_particles)) # N x num_particles x d
 		
+		self._weights = nn.Parameter((1./np.sqrt(num_particles))*tr.ones([N,num_particles],  dtype=self.data.dtype, device = self.data.device  ))
+
+
 	def add_noise(self):
 		noise = self.prior.sample(self.N,self.num_particles)
 		return self.data + self.noise_level*noise 
 
 	def update_noise_level(self):
 		self.noise_level *=self.noise_decay
+	def weights(self):
+		return self._weights**2 
 
 class QuaternionParticles(Particles):
 	def __init__(self,prior, N, num_particles, noise_level, noise_decay):
@@ -39,6 +44,8 @@ class QuaternionParticles(Particles):
 
 		noise = self.prior.sample(self.N,self.num_particles)
 		angle = tr.acos(noise[:,:,0])
+		#tmp  =  tr.sin(self.noise_level* angle)/angle
+		
 		direction = noise[:,:,1:]/tr.norm(noise[:,:,1:], dim=-1).unsqueeze(-1)
 		noise[:,:,0] = tr.cos(self.noise_level * angle)
 		noise[:,:,1:] = tr.einsum( 'np,npd ->npd' ,tr.sin(self.noise_level* angle), noise[:,:,1:] )
@@ -69,6 +76,24 @@ class RelativeMeasureMap(nn.Module):
 		ratios = tr.stack(ratios,dim=0)
 		return ratios
 
+
+class RelativeMeasureMapWeights(nn.Module):
+	def __init__(self,edges):
+		super(RelativeMeasureMapWeights,self).__init__()
+		self.edges = edges
+
+	def forward(self,particles,weights):
+		i = self.edges[0,:]
+		j = self.edges[1,:]
+		xi = particles[i,:,:]
+		xj = particles[j,:,:]
+		ratios = xi - xj
+
+		#ratios = tr.stack(ratios,dim=0)
+		RM_weights = weights[i,:]*weights[j,:]
+		return ratios,RM_weights
+
+
 class QuaternionRelativeMeasureMap(RelativeMeasureMap):
 	def __init__(self,edges):
 		super(QuaternionRelativeMeasureMap,self).__init__(edges)
@@ -79,8 +104,56 @@ class QuaternionRelativeMeasureMap(RelativeMeasureMap):
 		xi = particles[i,:,:]
 		xj = particles[j,:,:]
 		xj[:,:,1:] = -xj[:,:,1:]
+
 		ratios  = utils.quaternion_prod(xi,xj)
-		ratios  = ratios/tr.norm(ratios,dim=-1).unsqueeze(-1) 
+		#normalize = tr.norm(ratios,dim=-1).clone().detach()
+		#ratios  = ratios/normalize.unsqueeze(-1) 
 		return ratios
+
+
+class QuaternionRelativeMeasureMapWeights(RelativeMeasureMap):
+	def __init__(self,edges):
+		super(QuaternionRelativeMeasureMapWeights,self).__init__(edges)
+	def forward(self,particles, weights):
+		ratios = []
+		RM_weights = []
+		i = self.edges[0,:]
+		j = self.edges[1,:]
+		xi = particles[i,:,:]
+		xj = particles[j,:,:]
+		xj[:,:,1:] = -xj[:,:,1:]
+
+		
+		ratios  = utils.quaternion_prod(xi,xj)
+		#normalize = tr.norm(ratios,dim=-1).clone().detach()
+		#ratios  = ratios/normalize.unsqueeze(-1)
+		RM_weights = weights[i,:]*weights[j,:]
+		return ratios,RM_weights
+
+
+class QuaternionRelativeMeasureMapWeightsProduct(RelativeMeasureMap):
+	def __init__(self,edges):
+		super(QuaternionRelativeMeasureMapWeights,self).__init__(edges)
+	def forward(self,particles, weights):
+		ratios = []
+		RM_weights = []
+		i = self.edges[0,:]
+		j = self.edges[1,:]
+		xi = particles[i,:,:]
+		xj = particles[j,:,:]
+		N,K,_ = xi.shape
+		N,L,_ = xj.shape
+		#xj[:,:,1:] = -xj[:,:,1:]
+		#bb = utils.quaternion_a_inv_times_b(xi,xj)
+		ratios = utils.quaternion_a_inv_times_b(xi,xj, with_0_comp=True).permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
+		#aa = tr.rand([N,K,L])
+		#RM_weights = aa.reshape([N,-1])
+		RM_weights = tr.einsum('nk,nl->nkl', weights[i,:],weights[j,:]).reshape([N,-1])
+		#ratios  = utils.quaternion_prod(xi,xj)
+		#normalize = tr.norm(ratios,dim=-1).clone().detach()
+		#ratios  = ratios/normalize.unsqueeze(-1)
+		
+		return ratios,RM_weights
+
 
 

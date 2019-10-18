@@ -9,15 +9,17 @@ import numpy as np
 
 
 class Prior(object):
-	def __init__(self, name = 'prior'):
+	def __init__(self, dtype,device, name = 'prior'):
 		self.name = name
-		self.type = 'euclidian' 
+		self.type = 'euclidian'
+		self.dtype = dtype
+		self.device = device
 	def sample(self,N, num_particles):
 		raise NotImplementedError()
 
 class MixtureGaussianPrior(Prior):
-	def __init__(self,maxNumModes):
-		super(MixtureGaussianPrior,self).__init__(name='mixture_gaussians')
+	def __init__(self,maxNumModes,dtype,device):
+		super(MixtureGaussianPrior,self).__init__(dtype,device,name='mixture_gaussians')
 		self.maxNumModes = maxNumModes
 	def sample(self,N,num_particles):
 		Xs = []
@@ -36,18 +38,32 @@ class MixtureGaussianPrior(Prior):
 
 				k=k+numPtsPerMode
 			Xs.append(X)
-		Xs = tr.tensor(np.array(Xs).unsqueeze(-1))
+		Xs = tr.tensor(np.array(Xs).unsqueeze(-1),dtype=self.dtype, device=self.device)
+		Xs[:,:,0] = tr.abs(Xs[:,:,0])
 		return Xs
 
 class GaussianQuaternionPrior(Prior):
-	def __init__(self):
-		super(GaussianQuaternionPrior,self).__init__(name='gaussian')
+	def __init__(self,dtype,device):
+		super(GaussianQuaternionPrior,self).__init__(dtype,device,name='gaussian')
 		self.type= 'quaternion'
 	def sample(self,N,num_particles):
 		Xs = np.random.randn(N,num_particles,4)
-		Xs = tr.tensor(Xs)
+		Xs = tr.tensor(Xs,dtype=self.dtype, device=self.device)
+		Xs[:,:,0] = tr.abs(Xs[:,:,0])
+
 		Xs = Xs/tr.norm(Xs,dim=-1).unsqueeze(-1)
 
 		return Xs
 
+class GaussianPrior(Prior):
+	def __init__(self,dtype,device):
+		super(GaussianPrior,self).__init__(dtype,device,name='gaussian')
+		self.type= 'euclidian'
+	def sample(self,N,num_particles):
+		Xs = np.random.randn(N,num_particles,4)
+		Xs = tr.tensor(Xs,dtype=self.dtype, device=self.device)
+		#Xs[:,:,0] = tr.abs(Xs[:,:,0])
 
+		#Xs = Xs/tr.norm(Xs,dim=-1).unsqueeze(-1)
+
+		return Xs
