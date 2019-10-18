@@ -12,40 +12,39 @@ sns.set(context='paper', style='whitegrid', font_scale=1.75)
 
 
 
-def plot_from_dict(ax,value, path_dict, color_dict):
-	res_dicts = get_res(path_dict)
+def plot_from_dict(ax, xaxis, value, path_dict, color_dict,refresh=False):
+	res_dicts = get_res(path_dict,refresh=refresh)
 	for key in res_dicts.keys():
-		ax.plot(res_dicts[key][value], lw=2., label=key,color = color_dict[key])
+		ax.plot(res_dicts[key][xaxis],res_dicts[key][value], lw=2., label=key,color = color_dict[key])
 
 
-def get_res(path_dict):
+def get_res(path_dict,refresh=False):
 	out_dict = {}
 	for key, value in path_dict.items():
-		try:
-			pickle_in = open(os.path.join(value,"data/stacked_res.pickle"),"rb")
-			out_dict[key] = pickle.load(pickle_in)
-		except:
+		if not refresh:
 			try:
-				pickle_in = open(os.path.join(value,"data/all_res.pickle"),"rb")
-				res_dicts = pickle.load(pickle_in)
-				pickle_in.close()
+				pickle_in = open(os.path.join(value,"data/stacked_res.pickle"),"rb")
+				out_dict[key] = pickle.load(pickle_in)
 			except:
-				res_dicts = get_all_iter(os.path.join(value,"data"))
-			out_res = stack_all_res(res_dicts)
-			out_dict[key] = out_res
-			pickle_out = open(os.path.join(value, "data/stacked_res.pickle"),"wb")
-			pickle.dump(out_res, pickle_out)
-			pickle_out.close()
+				out_dict[key] = make_res(value)
+		else:
+			out_dict[key] = make_res(value)
 	return out_dict
-
 
 def stack_all_res(res_dicts):
 	out_dict = {}
-	values = ['eval_dist','loss']
+	values = ['eval_dist','loss','iteration','time']
 	for value in values:
 		tmp = [res_dict[value] for res_dict in res_dicts]
 		out_dict[value] = np.stack(tmp,axis = 0)
 	return out_dict
+
+def make_res(value):
+	res_dicts = get_all_iter(os.path.join(value,"data"))
+	out_res = stack_all_res(res_dicts)
+	with open(os.path.join(value, "data/stacked_res.pickle"),"wb") as pickle_out:
+		pickle.dump(out_res, pickle_out)
+	return out_res
 
 
 def get_all_iter(main_dir):
