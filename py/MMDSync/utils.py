@@ -194,7 +194,7 @@ class Quaternion_geodesic_distance(tr.autograd.Function):
 			#norm_Y =  Y/tr.norm(Y,dim=-1).unsqueeze(-1)
 			prod = tr.einsum('...ki,...li->...kl',X,Y)**2
 			#loss = tr.acos(prod.clamp(min=-1.,max=1.))
-			loss = 2*tr.atan( tr.sqrt(1-  prod.clamp(max=1.)  ) )
+			loss = 2*tr.atan( tr.sqrt(1-  prod.clamp(max=1.)  )/prod )
 		ctx.save_for_backward(X,Y,loss)
 		return loss
 
@@ -282,7 +282,7 @@ def grad_quaternion_geodesic_dist(X,Y,grad_output):
 	return gradients_x, gradients_y
 
 
-
+# this is correct
 def quaternion_prod(a,b):
 	shape_a = a.shape
 	c = tr.zeros_like(a)
@@ -291,7 +291,7 @@ def quaternion_prod(a,b):
 	return c
 
 
-
+# this is also correct
 def quaternion_a_inv_times_b(X,Y, with_0_comp = False):
 	shape_X = X.shape
 	shape_Y = Y.shape
@@ -308,6 +308,7 @@ def quaternion_a_inv_times_b(X,Y, with_0_comp = False):
 	return c
 
 
+# this is also correct
 def _quaternion_a_inv_times_b(a,b, with_0_comp = False):
 	shape_a = a.shape
 	c = tr.zeros_like(a)
@@ -316,7 +317,7 @@ def _quaternion_a_inv_times_b(a,b, with_0_comp = False):
 		c[:,:,0] =  tr.einsum('ijd,ijd->ij',a,b)
 	return c
 
-
+# this is also correct
 def _norm_im_a_inv_times_b(X,Y):
 
 	# computes the norm of the imaginary part of X^-1*Y
