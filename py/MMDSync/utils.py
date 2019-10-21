@@ -194,7 +194,8 @@ class Quaternion_geodesic_distance(tr.autograd.Function):
 			#norm_Y =  Y/tr.norm(Y,dim=-1).unsqueeze(-1)
 			prod = tr.einsum('...ki,...li->...kl',X,Y)**2
 			#loss = tr.acos(prod.clamp(min=-1.,max=1.))
-			loss = 2*tr.atan( tr.sqrt(1-  prod.clamp(max=1.)  )/prod )
+            prodClamp = prod.clamp(max=1.)
+			loss = 2*tr.atan( tr.sqrt(1-prodClamp)/prodClamp )
 		ctx.save_for_backward(X,Y,loss)
 		return loss
 
