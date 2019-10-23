@@ -194,15 +194,15 @@ class Quaternion_geodesic_distance(tr.autograd.Function):
 			#norm_Y =  Y/tr.norm(Y,dim=-1).unsqueeze(-1)
 			prod = tr.einsum('...ki,...li->...kl',X,Y)**2
 			#loss = tr.acos(prod.clamp(min=-1.,max=1.))
-            prodClamp = prod.clamp(max=1.)
+			prodClamp = prod.clamp(max=1.)
 			loss = 2*tr.atan( tr.sqrt(1-prodClamp)/prodClamp )
 		ctx.save_for_backward(X,Y,loss)
 		return loss
 
 	@staticmethod
 	def backward(ctx, grad_output):
-	 	X,Y,_ = ctx.saved_tensors
-	 	return grad_quaternion_geodesic_dist(X,Y,grad_output)
+		X,Y,_ = ctx.saved_tensors
+		return grad_quaternion_geodesic_dist(X,Y,grad_output)
 	# def backward(ctx, grad_output):
 	# 	eps = 1e-15
 	# 	X,Y = ctx.saved_tensors

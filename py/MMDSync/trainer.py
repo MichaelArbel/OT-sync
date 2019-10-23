@@ -74,7 +74,8 @@ class Trainer(object):
 				return mmd.MMD_weighted(self.kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
 			else:
 				return mmd.MMD(self.kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
-
+		elif self.args.loss=='sinkhorn':
+			return sinkhorn.SinkhornLoss(self.args.kernel, self.particles,self.RM_map,self.args.SH_eps)
 		else:
 			raise NotImplementedError()
 	def get_optimizer(self,lr):
@@ -186,6 +187,8 @@ def get_kernel(args,dtype, device):
 		return LaplaceQuaternionGeodesicDist(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
 	elif args.kernel == 'gaussianquaternion':
 		return GaussianQuaternionGeodesicDist(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
+	elif args.kernel == 'sinkhorn_gaussian':
+		return None
 	else:
 		raise NotImplementedError()
 

@@ -6,11 +6,65 @@ from torch.autograd import Variable
 from torch.nn import functional as F
 import numpy as np
 import pandas as pd
-from utils import stable_squared_angle
+from utils import stable_squared_angle,quaternion_geodesic_distance
 
 
 # Adapted from ../OptimalTransportSync
 # Adapted from https://github.com/gpeyre/SinkhornAutoDiff
+
+from geomloss import SamplesLoss
+
+def quaternion_geodesic_distance_geomloss(X,Y):
+
+    return quaternion_geodesic_distance(X,Y)
+
+def squared_quaternion_geodesic_distance_geomloss(X,Y):
+
+    return quaternion_geodesic_distance_geomloss(X,Y)**2
+
+
+
+def get_loss(kernel_type,eps):
+    if kernel_type=='laplacequaternion':
+        return SamplesLoss("sinkhorn", blur=eps, diameter=3.15, cost = quaternion_geodesic_distance_geomloss, backend= 'tensorized')
+    elif kernel_type=='gaussian':
+        return SamplesLoss("sinkhorn", p=2, blur=eps, diameter=4., backend= 'tensorized')
+    elif kernel_type=='gaussianquaternion':
+        return SamplesLoss("sinkhorn", blur=eps, diameter=10.,cost = squared_quaternion_geodesic_distance_geomloss, backend= 'tensorized')
+    elif kernel_type=='sinkhorn_gaussian':
+        return SamplesLoss("gaussian", blur=1., diameter=4., backend= 'tensorized')
+#loss = SamplesLoss("sinkhorn", blur=.05, diameter=3.15, cost = quaternion_geodesic_distance_geomloss, backend= 'tensorized')
+
+
+class SinkhornLoss(nn.Module):
+    r"""
+    Given two empirical measures each with :math:`P_1` locations
+    :math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
+    outputs an approximation of the regularized OT cost for point clouds.
+    Args:
+        eps (float): regularization coefficient
+        max_iter (int): maximum number of Sinkhorn iterations
+        reduction (string, optional): Specifies the reduction to apply to the output:
+            'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+            'mean': the sum of the output will be divided by the number of
+            elements in the output, 'sum': the output will be summed. Default: 'none'
+    Shape:
+        - Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
+        - Output: :math:`(N)` or :math:`()`, depending on `reduction`
+    """
+    def __init__(self, kernel_type, particles,rm_map, eps=0.05):
+        super(SinkhornLoss, self).__init__()
+        self.eps = eps
+        self.kernel_type = kernel_type
+        self.particles = particles
+        self.rm_map = rm_map
+        self.loss = get_loss(kernel_type,eps)
+    def forward(self, true_data):
+        # The Sinkhorn algorithm takes as input three variables :
+        y = self.rm_map(self.particles.data)
+        return  torch.sum(self.loss(true_data,y))
+
+
 
 
 class Sinkhorn(nn.Module):
@@ -103,8 +157,9 @@ class Sinkhorn(nn.Module):
             y_lin = y.unsqueeze(-3)
             C = torch.sum((torch.abs(x_col - y_lin)) ** p, -1)
         elif particles_type=='quaternion':
-            dist = stable_squared_angle(torch.einsum('...ki,...li->...kl',x,y))
-            C = torch.einsum('nkl->kl',dist)
+            with torch.no_grad():
+                dist = quaternion_geodesic_distance(x,y)
+                C = torch.einsum('nkl->kl',dist)
         return C
 
     @staticmethod
