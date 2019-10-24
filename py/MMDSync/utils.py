@@ -256,14 +256,13 @@ class Quaternion_geodesic_distance(tr.autograd.Function):
 
 quaternion_geodesic_distance = Quaternion_geodesic_distance.apply
 
-# def quaternion_geodesic_distance(X,Y):
-# 	#prod = 2*tr.einsum('...ki,...li->...kl',stableIdentity(X),stableIdentity(Y))**2-1
-# 	#loss = tr.acos(prod.clamp(min=-1.,max=1.))
-# 	prod = tr.einsum('...ki,...li->...kl',stableIdentity(X),stableIdentity(Y))**2
-# 			#loss = tr.acos(prod.clamp(min=-1.,max=1.))
-# 	loss = 2*tr.atan( tr.sqrt(1-  prod.clamp(max=1.)  ) )
+def quaternion_geodesic_distance(X,Y):
+	prod = tr.einsum('...ki,...li->...kl',X,Y)**2
 
-# 	return loss
+	prodClamp = prod.clamp(max=1.)
+	loss = 2*tr.atan( tr.sqrt(1-prodClamp)/prodClamp )
+
+	return loss
 
 
 
