@@ -12,7 +12,7 @@ parser.add_argument('--log_name', default = 'exp',type= str,  help='log director
 parser.add_argument('--log_in_file', action='store_true',  help='log output in file ')
 
 
-parser.add_argument('--device', default = 2 ,type= int,  help='gpu device')
+parser.add_argument('--device', default = 0 ,type= int,  help='gpu device')
 parser.add_argument('--dtype', default = 'float32' ,type= str,  help='gpu device')
 parser.add_argument('--seed', default = 999 ,type= int,  help='gpu device')
 
