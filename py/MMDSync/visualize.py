@@ -15,9 +15,11 @@ sns.set(context='paper', style='whitegrid', font_scale=1.75)
 def plot_from_dict(ax, xaxis, value, path_dict, color_dict,refresh=False):
 	res_dicts = get_res(path_dict,refresh=refresh)
 	for key in res_dicts.keys():
-		ax.plot(res_dicts[key][xaxis],res_dicts[key][value], lw=2., label=key,color = color_dict[key])
+		if xaxis=='time':
 
-
+			ax.plot(res_dicts[key][xaxis]-res_dicts[key][xaxis][0],res_dicts[key][value], lw=2., label=key,color = color_dict[key])
+		else:
+			ax.plot(res_dicts[key][xaxis],res_dicts[key][value], lw=2., label=key,color = color_dict[key])
 def get_res(path_dict,refresh=False):
 	out_dict = {}
 	for key, value in path_dict.items():
