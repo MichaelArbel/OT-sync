@@ -6,7 +6,7 @@ import utils
 import numpy as np
 
 class Particles(nn.Module):
-	def __init__(self,prior,N, num_particles , noise_level , noise_decay, particle_type='euclidian'):
+	def __init__(self,prior,N, num_particles , product_particles,noise_level , noise_decay,particle_type='euclidian'):
 		super(Particles,self).__init__()
 		assert prior.type==particle_type
 		self.prior = prior
@@ -15,12 +15,13 @@ class Particles(nn.Module):
 		self.N = N
 		self.noise_level = noise_level
 		self.noise_decay = noise_decay
-		
+		self.product_particles = product_particles
 		self.data = nn.Parameter(prior.sample(N,num_particles)) # N x num_particles x d
-		
-		self._weights = nn.Parameter((1./np.sqrt(num_particles))*tr.ones([N,num_particles],  dtype=self.data.dtype, device = self.data.device  ))
-
-
+		if self.product_particles:
+			self._weights = nn.Parameter((1./np.sqrt(num_particles))*tr.ones([N,num_particles],  dtype=self.data.dtype, device = self.data.device  ))
+		else:
+			self._weights = nn.Parameter((1./np.sqrt(num_particles))*tr.ones([num_particles],  dtype=self.data.dtype, device = self.data.device  ))
+			self._all_weights = tr.ones([N,num_particles],  dtype=self.data.dtype, device = self.data.device )
 	def add_noise(self):
 		noise = self.prior.sample(self.N,self.num_particles)
 		return self.data + self.noise_level*noise 
@@ -28,14 +29,16 @@ class Particles(nn.Module):
 	def update_noise_level(self):
 		self.noise_level *=self.noise_decay
 	def weights(self):
-		return self._weights**2 
-
+		if self.product_particles:
+			return self._weights**2
+		else:
+			return tr.einsum('k,nk->nk', self._weights**2, self._all_weights)
 class QuaternionParticles(Particles):
-	def __init__(self,prior, N, num_particles, noise_level, noise_decay):
+	def __init__(self,prior, N, num_particles, product_particles,noise_level, noise_decay):
 		# particle is a tensor   of shape N x num_paricles x d
 		# where d = 4 is the dimension of a normalized quaternion
 		#prior = BinghamGenerator(maxNumModes)
-		super(QuaternionParticles,self).__init__(prior,N,num_particles, noise_level,noise_decay, particle_type='quaternion')
+		super(QuaternionParticles,self).__init__(prior,N,num_particles,product_particles, noise_level,noise_decay, particle_type='quaternion')
 
 	def add_noise(self):
 
@@ -58,9 +61,10 @@ class QuaternionParticles(Particles):
 		return noisy_data
 
 class RelativeMeasureMap(nn.Module):
-	def __init__(self,edges):
+	def __init__(self,edges, grad_type='euclidean'):
 		super(RelativeMeasureMap,self).__init__()
 		self.edges = edges
+		self.grad_type = grad_type
 
 	def forward(self,particles):
 
@@ -78,9 +82,10 @@ class RelativeMeasureMap(nn.Module):
 
 
 class RelativeMeasureMapWeights(nn.Module):
-	def __init__(self,edges):
+	def __init__(self,edges,grad_type):
 		super(RelativeMeasureMapWeights,self).__init__()
 		self.edges = edges
+		self.grad_type = grad_type
 
 	def forward(self,particles,weights):
 		i = self.edges[0,:]
@@ -90,30 +95,43 @@ class RelativeMeasureMapWeights(nn.Module):
 		ratios = xi - xj
 
 		#ratios = tr.stack(ratios,dim=0)
-		RM_weights = weights[i,:]*weights[j,:]
+		#RM_weights = weights[i,:]*weights[j,:]
+		N = xi.shape[0] 
+		RM_weights = weights[0,:].unsqueeze(0).repeat(N,1)
+
 		return ratios,RM_weights
 
 
 class QuaternionRelativeMeasureMap(RelativeMeasureMap):
-	def __init__(self,edges):
-		super(QuaternionRelativeMeasureMap,self).__init__(edges)
+	def __init__(self,edges,grad_type='quaternion'):
+		super(QuaternionRelativeMeasureMap,self).__init__(edges,grad_type)
 	def forward(self,particles):
 		ratios = []
 		i = self.edges[0,:]
 		j = self.edges[1,:]
 		xi = particles[i,:,:]
 		xj = particles[j,:,:]
-		xj[:,:,1:] = -xj[:,:,1:]
+		if self.grad_type=='euclidean':
+			ratios = utils.forward_quaternion_X_times_Y_inv(xi,xj)
+		elif self.grad_type=='quaternion':
+			ratios  = utils.quaternion_X_times_Y_inv(xi,xj)
 
-		ratios  = utils.quaternion_prod(xi,xj)
+		#xi = particles
+		#xj = tr.ones_like(xi)
+		#xj = xj/tr.norm(xj,dim=-1).unsqueeze(-1)
+		#ratios  = utils.quaternion_X_times_Y_inv(xj,xi)
+		#ratios = xi
+		#xj[:,:,1:] *=-1.
+		#ratios  = utils.quaternion_prod(xi,xj)
+
 		#normalize = tr.norm(ratios,dim=-1).clone().detach()
-		#ratios  = ratios/normalize.unsqueeze(-1) 
+		#ratios  = ratios/normalize.unsqueeze(-1)
 		return ratios
 
 
 class QuaternionRelativeMeasureMapWeights(RelativeMeasureMap):
-	def __init__(self,edges):
-		super(QuaternionRelativeMeasureMapWeights,self).__init__(edges)
+	def __init__(self,edges,grad_type):
+		super(QuaternionRelativeMeasureMapWeights,self).__init__(edges,grad_type)
 	def forward(self,particles, weights):
 		ratios = []
 		RM_weights = []
@@ -121,19 +139,25 @@ class QuaternionRelativeMeasureMapWeights(RelativeMeasureMap):
 		j = self.edges[1,:]
 		xi = particles[i,:,:]
 		xj = particles[j,:,:]
-		xj[:,:,1:] = -xj[:,:,1:]
-
 		
-		ratios  = utils.quaternion_prod(xi,xj)
-		#normalize = tr.norm(ratios,dim=-1).clone().detach()
+		if self.grad_type=='euclidean':
+			ratios = utils.forward_quaternion_X_times_Y_inv(xi,xj)
+		elif self.grad_type=='quaternion':
+			ratios  = utils.quaternion_X_times_Y_inv(xi,xj)
+		#normalize = tr.norm(ratio=-1).clone().detach()
 		#ratios  = ratios/normalize.unsqueeze(-1)
-		RM_weights = weights[i,:]*weights[j,:]
+		
+		#RM_weights = weights[i,:]*weights[j,:]
+		N = xi.shape[0]
+
+		RM_weights = weights[0,:].unsqueeze(0).repeat(N,1)
+		#ratios = ratios.clone().detach()
 		return ratios,RM_weights
 
 
 class QuaternionRelativeMeasureMapWeightsProduct(RelativeMeasureMap):
-	def __init__(self,edges):
-		super(QuaternionRelativeMeasureMapWeights,self).__init__(edges)
+	def __init__(self,edges,grad_type):
+		super(QuaternionRelativeMeasureMapWeightsProduct,self).__init__(edges,grad_type)
 	def forward(self,particles, weights):
 		ratios = []
 		RM_weights = []
@@ -145,7 +169,13 @@ class QuaternionRelativeMeasureMapWeightsProduct(RelativeMeasureMap):
 		N,L,_ = xj.shape
 		#xj[:,:,1:] = -xj[:,:,1:]
 		#bb = utils.quaternion_a_inv_times_b(xi,xj)
-		ratios = utils.quaternion_a_inv_times_b(xi,xj, with_0_comp=True).permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
+		if self.grad_type=='euclidean':
+			ratios = utils.forward_quaternion_X_times_Y_inv_prod(xi,xj)
+		elif self.grad_type=='quaternion':
+			ratios = utils.quaternion_X_times_Y_inv_prod(xi,xj)
+
+		ratios = ratios.permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
+		#ratios = ratios.clone().detach()
 		#aa = tr.rand([N,K,L])
 		#RM_weights = aa.reshape([N,-1])
 		RM_weights = tr.einsum('nk,nl->nkl', weights[i,:],weights[j,:]).reshape([N,-1])
@@ -155,5 +185,29 @@ class QuaternionRelativeMeasureMapWeightsProduct(RelativeMeasureMap):
 		
 		return ratios,RM_weights
 
+
+
+class QuaternionRelativeMeasureMapProduct(RelativeMeasureMap):
+	def __init__(self,edges,grad_type):
+		super(QuaternionRelativeMeasureMapProduct,self).__init__(edges,grad_type)
+	def forward(self,particles):
+		ratios = []
+		i = self.edges[0,:]
+		j = self.edges[1,:]
+		xi = particles[i,:,:]
+		xj = particles[j,:,:]
+		N,K,_ = xi.shape
+		N,L,_ = xj.shape
+		#xj[:,:,1:] = -xj[:,:,1:]
+		#bb = utils.quaternion_a_inv_times_b(xi,xj)
+		if self.grad_type=='euclidean':
+			ratios = utils.forward_quaternion_X_times_Y_inv_prod(xi,xj)
+		elif self.grad_type=='quaternion':
+			ratios = utils.quaternion_X_times_Y_inv_prod(xi,xj)
+
+		ratios = ratios.permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
+
+		
+		return ratios
 
 

@@ -43,6 +43,18 @@ gt /= np.linalg.norm(gt, axis=1, keepdims=True)
 bingham = db.get_bingham(eng, distributions, GT=None, precision=quality)  / 255. # without ground truth
 bingham_gt = db.get_bingham(eng, distributions, GT=gt, precision=quality) / 255. # with ground truth
 
+db.fit()
+
 # show on display with and without gt
 cv2.imshow('bingham', cv2.hconcat([bingham, bingham_gt]))
 cv2.waitKey(0)
+
+
+
+
+
+
+
+
+
+

@@ -35,14 +35,13 @@ class quaternion_SGD(Optimizer):
 		for group in self.param_groups:
 			group.setdefault('nesterov', False)
 
-	def step(self, closure=None):
+	def step(self, loss=None, closure=None):
 		"""Performs a single optimization step.
 
 		Arguments:
 			closure (callable, optional): A closure that reevaluates the model
 				and returns the loss.
 		"""
-		loss = None
 		if closure is not None:
 			loss = closure()
 
@@ -71,13 +70,20 @@ class quaternion_SGD(Optimizer):
 						d_p = buf
 				if i==0:
 					#v = - group['lr']* utils.quaternion_proj(param.data,d_p)
-					v = - group['lr']* d_p
+					effective_lr = compute_lr(group['lr'],d_p,loss)
+					v = - effective_lr* d_p
 					param.data = utils.quaternion_exp_map(param.data,v, north_hemisphere=False)
+					
 				else:
-					v = - group['lr']* utils.sphere_proj(param.data,d_p)
+					v = - 0.1*group['lr']* utils.sphere_proj(param.data,d_p)
 					param.data = utils.sphere_exp_map(param.data,v, north_hemisphere=False)
 
 					#w_g = - group['lr']* (d_p - tr.sum(d_p,dim=-1).unsqueeze(-1))
 					#param.data = (param.data + w_g).clamp(0.)
 					#param.data = param.data/tr.sum(param.data, dim=-1).unsqueeze(-1)
 		return loss
+
+def compute_lr(lr, v, loss):
+	tmp  =  loss/tr.norm(v)**2
+	#return lr
+	return min(lr,tmp)

@@ -61,6 +61,3 @@ def get_all_iter(main_dir):
 	pickle_out.close()
 	return res_dicts
 
-
-
-

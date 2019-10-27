@@ -18,7 +18,7 @@ import sinkhorn
 import particles
 import prior
 import optimizers
-from kernel.gaussian import Gaussian,LaplaceQuaternionGeodesicDist,GaussianQuaternionGeodesicDist
+from kernel.gaussian import Gaussian,ExpQuaternionGeodesicDist,ExpPowerQuaternionGeodesicDist
 import pickle
 
 torch.backends.cudnn.benchmark=True
@@ -60,9 +60,8 @@ class Trainer(object):
 		self.edges = get_edges(self.args)
 		self.RM_map = get_rm_map(self.args,self.edges)
 		self.prior = self.get_prior(self.args)
-		self.true_RM = self.get_true_rm()
+		self.true_RM, self.true_RM_weights = self.get_true_rm()
 		self.particles = get_particles(self.args, self.prior)
-		self.kernel = get_kernel(self.args,self.dtype, self.device)	
 		self.loss = self.get_loss()
 		self.optimizer = self.get_optimizer(self.args.lr)
 		self.scheduler = get_scheduler(self.args, self.optimizer)
@@ -70,12 +69,17 @@ class Trainer(object):
 
 	def get_loss(self):
 		if self.args.loss=='mmd':
+			kernel = get_kernel(self.args,self.dtype, self.device)
 			if self.args.with_weights==1:
-				return mmd.MMD_weighted(self.kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
+				return mmd.MMD_weighted(kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
 			else:
-				return mmd.MMD(self.kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
+				return mmd.MMD(kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
 		elif self.args.loss=='sinkhorn':
-			return sinkhorn.SinkhornLoss(self.args.kernel, self.particles,self.RM_map,self.args.SH_eps)
+			if self.args.with_weights==1:
+				return sinkhorn.Sinkhorn_weighted(self.args.kernel_cost, self.particles,self.RM_map,self.args.SH_eps)
+			else:
+
+				return sinkhorn.Sinkhorn(self.args.kernel_cost, self.particles,self.RM_map,self.args.SH_eps)
 		else:
 			raise NotImplementedError()
 	def get_optimizer(self,lr):
@@ -89,19 +93,22 @@ class Trainer(object):
 
 	def get_true_rm(self):
 		if self.args.model =='synthetic':
-			num_particles = int(0.1*self.args.num_particles)
+			num_particles = int(0.1*self.args.num_particles) 
 			self.true_particles = self.prior.sample(self.args.N, num_particles)
-			self.true_weights = torch.ones([self.args.N, num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
+			self.true_weights = (1./num_particles)*torch.ones([self.args.N, num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
 			if self.args.with_weights==1:
-				rm, _ =self.RM_map(self.true_particles,  self.true_weights )
+				rm, rm_weights =self.RM_map(self.true_particles,  self.true_weights )
 			else:
-				rm =self.RM_map(self.true_particles )
-			return rm
+				rm = self.RM_map(self.true_particles)
+				V,N,_ = rm.shape
+				rm_weights = (1./N)*torch.ones([V,N], dtype=rm.dtype, device=rm.device)
+				
+			return rm, rm_weights
 		else:
 			raise NotImplementedError()
 	def get_eval_loss(self):
 		if self.args.eval_loss=='sinkhorn':
-			return sinkhorn.Sinkhorn(self.args.SH_eps, self.args.SH_max_iter,self.args.particles_type)
+			return sinkhorn.SinkhornEval(self.args.SH_eps, self.args.SH_max_iter,'quaternion')
 
 	def get_prior(self,args):
 		if args.prior =='mixture_gaussians' and args.particles_type=='euclidian':
@@ -122,6 +129,8 @@ class Trainer(object):
 		for iteration in range(self.args.total_iters):
 			#scheduler.step()
 			loss = self.train_iter(iteration)
+			#if loss < 0.158:
+			#	print(loss)
 			if not np.isfinite(loss):
 				break 
 			#if self.args.use_scheduler:
@@ -145,10 +154,22 @@ class Trainer(object):
 
 		#print( ' Min norm  ' + str(min_norm.item()) +  ' Max_norm ' + str(max_norm.item()))
 		#rm_particles = self.RM_map(self.particles)
-		loss = self.loss(self.true_RM)
-		loss.backward()
+		if self.args.with_weights==1:
+			loss = self.loss(self.true_RM, self.true_RM_weights)
+		else:
+			loss = self.loss(self.true_RM)
+		if iteration==86:
+			print('bug here')
+		#print('particles')
+		#print(self.particles.data)
+		#print('ground_truth')
+		#print(self.true_particles)
 		
-		self.optimizer.step()
+		#loss = self.loss(self.true_particles)
+
+		loss.backward()
+		self.optimizer.param_groups[0]['lr'] = self.args.lr#/np.sqrt(iteration+1)
+		self.optimizer.step(loss=loss)
 		#print(self.particles.data)
 		loss_val = loss.item()
 		#self.scheduler.step(loss_val)
@@ -173,47 +194,66 @@ class Trainer(object):
 
 		
 		if self.args.model =='synthetic':
-			cost, _,_ = self.eval_loss(self.particles.data,self.true_particles, self.particles.weights(), self.true_weights)
-			out['eval_dist'] =  cost.item()
-			print('Sinkhorn distance: '+ str(out['eval_dist']))
+			
+			if self.args.with_weights==1:
+				out['eval_dist'] =   self.eval_loss(self.particles.data,self.true_particles, self.particles.weights(), self.true_weights).item()
+				rm, rm_weights =self.RM_map(self.particles.data,  self.particles.weights() )
+				out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
+			else:
+				out['eval_dist'] =   self.eval_loss(self.particles.data,self.true_particles, None,None).item()
+				rm =self.RM_map(self.particles.data)
+				out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,None,None).item()
+
+			
+			
+			print('Sinkhorn distance 	absolute poses '+ str(out['eval_dist']))
+			print('Sinkhorn distance 	relative poses '+ str(out['eval_RM_dist']))
+
 		return out
 
 
 def get_kernel(args,dtype, device):
 
-	if args.kernel == 'gaussian':
+	if args.kernel_cost == 'squared_euclidean':
 		return Gaussian(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
-	elif args.kernel == 'laplacequaternion':
-		return LaplaceQuaternionGeodesicDist(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
-	elif args.kernel == 'gaussianquaternion':
-		return GaussianQuaternionGeodesicDist(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
-	elif args.kernel == 'sinkhorn_gaussian':
+	elif args.kernel_cost == 'quaternion':
+		return ExpQuaternionGeodesicDist(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
+	elif args.kernel_cost == 'power_quaternion':
+		return ExpPowerQuaternionGeodesicDist(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
+	elif args.kernel_cost == 'sinkhorn_gaussian':
 		return None
 	else:
 		raise NotImplementedError()
 
 def get_particles(args, prior):
 	if args.particles_type == 'euclidian':
-		return particles.Particles(prior,args.N, args.num_particles ,args.noise_level, args.noise_decay)
+		return particles.Particles(prior,args.N, args.num_particles , args.product_particles, args.noise_level, args.noise_decay)
 	elif args.particles_type== 'quaternion':
-		return particles.QuaternionParticles(prior, args.N, args.num_particles ,args.noise_level, args.noise_decay)
+		return particles.QuaternionParticles(prior, args.N, args.num_particles ,args.product_particles,args.noise_level, args.noise_decay)
 	else:
 		raise NotImplementedError()
 
 def get_rm_map(args,edges):
+	if args.kernel_cost=='quaternion' or args.kernel_cost=='power_quaternion':
+		grad_type='quaternion'
+	else:
+		grad_type='euclidean'
 	if args.particles_type=='euclidian':
 		if args.with_weights==1:
-			return particles.RelativeMeasureMapWeights(edges)
+			return particles.RelativeMeasureMapWeights(edges,grad_type)
 		else:
-			return particles.RelativeMeasureMap(edges)
+			return particles.RelativeMeasureMap(edges,grad_type)
 	elif args.particles_type=='quaternion':
 		if args.with_weights==1:
 			if args.product_particles==1:
-				return particles.QuaternionRelativeMeasureMapWeightsProduct(edges)
+				return particles.QuaternionRelativeMeasureMapWeightsProduct(edges,grad_type)
 			else:
-				return particles.QuaternionRelativeMeasureMapWeights(edges)
+				return particles.QuaternionRelativeMeasureMapWeights(edges,grad_type)
 		else:
-			return particles.QuaternionRelativeMeasureMap(edges)
+			if args.product_particles==1:
+				return particles.QuaternionRelativeMeasureMapProduct(edges,grad_type)
+			else:
+				return particles.QuaternionRelativeMeasureMap(edges,grad_type)
 	else:
 		raise NotImplementedError()
 

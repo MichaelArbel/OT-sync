@@ -82,12 +82,16 @@ def generate_graph(N, completeness):
 	edges = I
 	return edges
 
-def quaternion_prod(a,b):
-	shape_a = a.shape
-	c = tr.zeros_like(a)
-	c[:,:,1:] =  tr.cross(a[:,:,1:],b[:,:,1:]) +a[:,:,0].unsqueeze(-1)*b[:,:,1:] + b[:,:,0].unsqueeze(-1)*a[:,:,1:]
-	c[:,:,0] = a[:,:,0]*b[:,:,0] -  tr.einsum('ijd,ijd->ij',a[:,:,1:],b[:,:,1:]) 
-	return c
+def power_quaternion_geodesic_distance(X,Y):
+
+    return quaternion_geodesic_distance(X,Y)**1.2
+
+
+def min_squared_eucliean_distance(X,Y):
+	prod = tr.abs(tr.einsum('...ki,...li->...kl',X,Y)).clamp(max=1.)
+	return 2.*(1.-prod)
+
+
 
 def quaternion_exp_map(a,v, north_hemisphere=False):
 	alpha  = tr.norm(v[:,:,1:],dim=-1)
@@ -100,9 +104,13 @@ def quaternion_exp_map(a,v, north_hemisphere=False):
 	exp_v = tr.ones_like(v)
 	exp_v[:,:,0] = tr.cos(alpha)
 	exp_v[:,:,1:] = tr.einsum('...d,...->...d' ,v[:,:,1:],beta)
+	
 	prod = quaternion_prod(a, exp_v)
-	prod[:,:,0] = prod[:,:,0].clamp(0.)
+	#prod[:,:,0] = prod[:,:,0].clamp(0.)
 	prod = prod/tr.norm(prod,dim=-1).unsqueeze(-1)
+	#prod = tr.sign(prod[:,:,0]).unsqueeze(-1)*prod
+	mask = (prod[:,:,0] <0)
+	prod[mask]*=-1
 	return prod
 
 	# if north_hemisphere:
@@ -110,15 +118,48 @@ def quaternion_exp_map(a,v, north_hemisphere=False):
 	# 	tmp= tmp/tr.norm(tmp,dim=-1).unsqueeze(-1)
 	# return tmp
 
+
+# def quaternion_exp_map(a,v, north_hemisphere=False):
+# 	alpha  = tr.norm(v[:,:,1:],dim=-1)
+# 	tmp = tr.sin(alpha)/alpha
+# 	beta = tr.ones_like(alpha)
+# 	mask = (alpha>0.)
+# 	beta[mask] = tmp[mask]
+
+# 	#tmp = tr.einsum('...d,...->...d' ,a,tr.cos(alpha)) + tr.einsum('...d,...->...d' ,v,beta)
+# 	exp_v = tr.ones_like(v)
+# 	exp_v[:,:,0] = tr.cos(alpha)
+# 	exp_v[:,:,1:] = tr.einsum('...d,...->...d' ,v[:,:,1:],beta)
+	
+# 	prod = quaternion_prod(a, exp_v)
+# 	#prod[:,:,0] = prod[:,:,0].clamp(0.)
+# 	#prod = prod/tr.norm(prod,dim=-1).unsqueeze(-1)
+# 	#print(prod)
+# 	prod = tr.sign(prod[:,:,0]).unsqueeze(-1)*prod
+# 	return prod
+
+	# if north_hemisphere:
+	# 	tmp[:,:,0] = tmp[:,:,0].clamp(0.)
+	# 	tmp= tmp/tr.norm(tmp,dim=-1).unsqueeze(-1)
+	# return tmp
+
+
 def sphere_exp_map(a,v, north_hemisphere=False):
 	alpha  = tr.norm(v,dim=-1)
-	tmp = tr.sin(alpha)/alpha
+	#tmp = tmp.clamp(0)
 	beta = tr.ones_like(alpha)
 	mask = (alpha>0.)
-	beta[mask] = tmp[mask]
+	beta[mask] = tr.sin(alpha[mask])/alpha[mask]
 
 	tmp = tr.einsum('...d,...->...d' ,a,tr.cos(alpha)) + tr.einsum('...d,...->...d' ,v,beta)
-
+	tmp = tmp/tr.norm(tmp,dim=-1).unsqueeze(-1)
+	if len(tmp.shape)>1:
+		mask = (tmp[:,0] <0)
+	else:
+		mask = (tmp <0)
+	tmp[mask]*=-1.
+	#tmp = tr.sign(tmp[:,0]).unsqueeze(-1)*tmp
+	#print(tr.norm(tmp,dim=-1))
 	return tmp
 
 def quaternion_proj(qq,g):
@@ -135,34 +176,34 @@ def sphere_proj(qq,g):
 
 
 
-class Stable_squared_angle(tr.autograd.Function):
+# class Stable_squared_angle(tr.autograd.Function):
 
 
-	@staticmethod
-	def forward(ctx, X):
-		ctx.save_for_backward(X)
-		with  tr.enable_grad():
-			return tr.acos(2*X**2-1)**2
+# 	@staticmethod
+# 	def forward(ctx, X):
+# 		ctx.save_for_backward(X)
+# 		with  tr.enable_grad():
+# 			return tr.acos(2*X**2-1)**2
 		
 
 
-	@staticmethod
-	def backward(ctx, grad_output):
-		X, = ctx.saved_tensors
-		Y = tr.sqrt(1-X**2)
+# 	@staticmethod
+# 	def backward(ctx, grad_output):
+# 		X, = ctx.saved_tensors
+# 		Y = tr.sqrt(1-X**2)
 
-		mask = (Y>0.)
-		ratio = tr.asin(Y)/Y
-		tmp = tr.ones_like(X)
-		tmp[mask] = ratio[mask]
-		gradients = -8*tr.sign(X)*tmp*grad_output
-
-
-		#return ss
-		return gradients
+# 		mask = (Y>0.)
+# 		ratio = tr.asin(Y)/Y
+# 		tmp = tr.ones_like(X)
+# 		tmp[mask] = ratio[mask]
+# 		gradients = -8*tr.sign(X)*tmp*grad_output
 
 
-stable_squared_angle = Stable_squared_angle.apply
+# 		#return ss
+# 		return gradients
+
+
+# stable_squared_angle = Stable_squared_angle.apply
 
 
 
@@ -190,12 +231,8 @@ class Quaternion_geodesic_distance(tr.autograd.Function):
 	def forward(ctx, X,Y):
 		
 		with  tr.enable_grad():
-			#norm_X =  X/tr.norm(X,dim=-1).unsqueeze(-1)
-			#norm_Y =  Y/tr.norm(Y,dim=-1).unsqueeze(-1)
-			prod = tr.einsum('...ki,...li->...kl',X,Y)**2
-			#loss = tr.acos(prod.clamp(min=-1.,max=1.))
-			prodClamp = prod.clamp(max=1.)
-			loss = 2*tr.atan( tr.sqrt(1-prodClamp)/prodClamp )
+			prod = tr.abs(tr.einsum('...ki,...li->...kl',X,Y)).clamp(max=1.)
+			loss = 2*tr.acos(prod)
 		ctx.save_for_backward(X,Y,loss)
 		return loss
 
@@ -203,95 +240,198 @@ class Quaternion_geodesic_distance(tr.autograd.Function):
 	def backward(ctx, grad_output):
 		X,Y,_ = ctx.saved_tensors
 		return grad_quaternion_geodesic_dist(X,Y,grad_output)
-	# def backward(ctx, grad_output):
-	# 	eps = 1e-15
-	# 	X,Y = ctx.saved_tensors
-
-	# 	w = _norm_im_a_inv_times_b(X,Y)
-
-	# 	#ww = quaternion_a_inv_times_b(X,Y)
-	# 	#w2 = tr.norm(ww,dim=-1)
-
-	# 	mask  = (w>eps)
-	# 	ratio = grad_output/w
-	# 	weights = tr.zeros_like(grad_output)
-	# 	weights[mask] = ratio[mask]
-	# 	tmp_x = tr.einsum('nkl,nli->nki', weights,Y)
-	# 	gradients_x = - _quaternion_a_inv_times_b(X, tmp_x, with_0_comp = False)
-	# 	tmp_y = tr.einsum('nkl,nki->nli', weights,X)
-	# 	gradients_y =  - _quaternion_a_inv_times_b(Y, tmp_y, with_0_comp = False)
-	# 	#return aa
-	# 	return gradients_x, gradients_y
 
 
+class Squared_Quaternion_geodesic_distance(tr.autograd.Function):
+	# takes a input two tensors   ...Md and ...Md
 
-	# def backward(ctx, grad_output):
+	@staticmethod
+	def forward(ctx, X,Y):
+		
+		with  tr.enable_grad():
+			prod = tr.abs(tr.einsum('...ki,...li->...kl',X,Y)).clamp(max=1.)
+			loss = 2*tr.acos(prod)
+		ctx.save_for_backward(X,Y,loss)
+		return loss**2
 
-	# 	X,Y,loss = ctx.saved_tensors
-	# 	#if X.requires_grad and Y.requires_grad:
-	# 	gradient =  autograd.grad(outputs=loss, inputs=[X,Y], grad_outputs=grad_output)
-	# 	mask_1 = tr.isfinite(gradient[0])
-	# 	mask_2 = tr.isfinite(gradient[1])
-	# 	grad_x = tr.zeros_like(X)
-	# 	grad_y = tr.zeros_like(Y)
-	# 	grad_x[mask_1] = gradient[0][mask_1]
-	# 	grad_y[mask_2] = gradient[1][mask_2]
-	# 	# elif not X.requires_grad:
-	# 	# 	gradient =  autograd.grad(outputs=loss, inputs=Y, grad_outputs=grad_output)
-	# 	# 	mask_2 = tr.isfinite(gradient[0])
-	# 	# 	grad_x = None	
-	# 	# 	grad_y = tr.zeros_like(Y)
-	# 	# 	grad_y[mask_2] = gradient[1][mask_2]
-	# 	# elif not Y.requires_grad:
-	# 	# 	gradient =  autograd.grad(outputs=loss, inputs=X, grad_outputs=grad_output)
-	# 	# 	mask_1 = tr.isfinite(gradient[0])
-	# 	# 	grad_x = tr.zeros_like(X)	
-	# 	# 	grad_y = None
-	# 	# 	grad_y[mask_1] = gradient[0][mask_1]
-	# 	return grad_x, grad_y
-
-		#return grad_quaternion_geodesic_dist(X,Y,grad_output)
-
+	@staticmethod
+	def backward(ctx, grad_output):
+		X,Y,_ = ctx.saved_tensors
+		return grad_squared_quaternion_geodesic_dist(X,Y,grad_output)
 
 
 quaternion_geodesic_distance = Quaternion_geodesic_distance.apply
+squared_quaternion_geodesic_distance = Squared_Quaternion_geodesic_distance.apply
+# def quaternion_geodesic_distance(X,Y):
+# 	prod = tr.abs(tr.einsum('...ki,...li->...kl',stableIdentity(X),stableIdentity(Y))).clamp(max=1.)
+# 			#loss = tr.acos(prod.clamp(min=-1.,max=1.))
+# 	loss = 2.*tr.acos(prod)
 
-def quaternion_geodesic_distance(X,Y):
-	prod = tr.einsum('...ki,...li->...kl',X,Y)**2
-
-	prodClamp = prod.clamp(max=1.)
-	loss = 2*tr.atan( tr.sqrt(1-prodClamp)/prodClamp )
-
-	return loss
-
+# 	return loss
 
 
 def grad_quaternion_geodesic_dist(X,Y,grad_output):
 	eps = 0.
-	C = quaternion_a_inv_times_b(X, Y, with_0_comp = False)
+	C = quaternion_a_inv_times_b(X, Y)
 
-	w = tr.norm(C,dim=-1)
+	w = tr.norm(C[:,:,:,1:],dim=-1)
+	#print(w)
 	#ww = quaternion_a_inv_times_b(X,Y)
 	#w2 = tr.norm(ww,dim=-1)
 	mask  = (w>eps)
 	ratio = grad_output/w
 	weights = tr.zeros_like(grad_output)
 	weights[mask] = ratio[mask]
+	mask = (C[:,:,:,0]<0.)
+	weights[mask] *= -1.
+	#print(C[:,:,:,0])
+	C[:,:,:,0] = 0.
 	gradients_x = - tr.einsum('nkl,nkli->nki', weights,C)
 	gradients_y = tr.einsum('nkl,nkli->nli', weights,C)
+	#return aa
 	return gradients_x, gradients_y
+
+
+def grad_squared_quaternion_geodesic_dist(X,Y,grad_output):
+	C = quaternion_a_inv_times_b(X, Y)
+	w = tr.norm(C[:,:,:,1:],dim=-1)
+	#print(w)
+	#ww = quaternion_a_inv_times_b(X,Y)
+	#w2 = tr.norm(ww,dim=-1)
+	weights = grad_output
+	#print(C[:,:,:,0])
+	mask = (C[:,:,:,0]<0.)
+	weights[mask] *= -1.
+	#print(C[:,:,:,0])
+	C[:,:,:,0] = 0.
+	gradients_x = -tr.einsum('nkl,nkli->nki', weights,C)
+	gradients_y =  tr.einsum('nkl,nkli->nli', weights,C)
+
+
+
+	return gradients_x, gradients_y
+
+
+
+
+
+class Quaternion_X_times_Y_inv_prod(tr.autograd.Function):
+	# takes a input two tensors   ...Md and ...Md
+
+	@staticmethod
+	def forward(ctx, X,Y):
+		
+		with  tr.enable_grad():
+			c = forward_quaternion_X_times_Y_inv_prod(X,Y)
+		ctx.save_for_backward(X,Y)
+		return c
+
+	@staticmethod
+	def backward(ctx, grad_output):
+		X,Y = ctx.saved_tensors
+		rot_output = rotate_prod(grad_output,Y)
+		grad_x = tr.einsum('nkld->nkd',rot_output)
+		grad_y = -tr.einsum('nkld->nld',rot_output)
+		#return aa
+		return grad_x, grad_y
+
+
+
+
+class Quaternion_X_times_Y_inv(tr.autograd.Function):
+	# takes a input two tensors   ...Md and ...Md
+
+	@staticmethod
+	def forward(ctx, X,Y):
+		
+		with  tr.enable_grad():
+			c = forward_quaternion_X_times_Y_inv(X,Y)
+		ctx.save_for_backward(X,Y)
+		return c
+
+	@staticmethod
+	def backward(ctx, grad_output):
+		X,Y = ctx.saved_tensors
+		rot_output = rotate(grad_output,Y)
+		return rot_output, -rot_output
+
+quaternion_X_times_Y_inv_prod = Quaternion_X_times_Y_inv_prod.apply
+quaternion_X_times_Y_inv = Quaternion_X_times_Y_inv.apply
+
+
+def forward_quaternion_X_times_Y_inv_prod(X,Y):
+	shape_X = X.shape
+	shape_Y = Y.shape
+	c = tr.zeros([shape_X[0],shape_X[1],shape_Y[1],shape_X[2]],  dtype = X.dtype, device = X.device )
+	inds = [[1,2,3],[2,3,1],[3,1,2]]
+	for j in range(3):
+		i = inds[j][0]
+		i_1 = inds[j][1]
+		i_2 = inds[j][2]
+		c[:,:,:,i] = tr.einsum('nl,nk->nkl',Y[:,:,i_1],X[:,:,i_2]) -  tr.einsum('nl,nk->nkl',Y[:,:,i_2],X[:,:,i_1]) + tr.einsum('nl,nk->nkl',Y[:,:,0],X[:,:,i]) - tr.einsum('nl,nk->nkl',Y[:,:,i],X[:,:,0])
+	c[:,:,:,0] = tr.einsum('nli,nki->nkl',Y[:,:,:],X[:,:,:])
+	return c
+
+def forward_quaternion_X_times_Y_inv(X,Y):
+	YY = 1.*Y
+	YY[:,:,1:] *= -1 
+	return  quaternion_prod(X,YY)
+
+
+
+def rotate_prod(v, q):
+	# v : N x K x L x d
+	# q      : N x L x d
+	# computes   q^-1 v q
+	out = tr.zeros_like(v)
+	inds = [[1,2,3],[2,3,1],[3,1,2]]
+	for j in range(3):
+		i = inds[j][0]
+		i_1 = inds[j][1]
+		i_2 = inds[j][2]
+		out[:,:,:,i] = 2*(tr.einsum('nkl,nl->nkl',v[:,:,:,i_1],q[:,:,i_2]*q[:,:,0]) -  tr.einsum('nkl,nl->nkl',v[:,:,:,i_2],q[:,:,i_1]*q[:,:,0])) 
+	tmp = q[:,:,0]**2 - tr.sum(q[:,:,1:]**2, dim=-1)
+	out[:,:,:,1:] += tr.einsum('nkld,nl->nkld',v[:,:,:,1:], tmp )
+	tmp = 2*tr.einsum('nkld,nld->nkl',v[:,:,:,1:],q[:,:,1:])
+	out[:,:,:,1:] += tr.einsum('nld,nkl->nkld',q[:,:,1:], tmp )
+	out[:,:,:,0] = v[:,:,:,0]
+
+	return out
+
+
+def rotate(v, q):
+	# v : N x  L x d
+	# q      : N x L x d
+	# computes   q^-1 v q
+
+	out = tr.zeros_like(v)
+	inds = [[1,2,3],[2,3,1],[3,1,2]]
+	for j in range(3):
+		i = inds[j][0]
+		i_1 = inds[j][1]
+		i_2 = inds[j][2]
+		out[:,:,i] = 2*(tr.einsum('nl,nl->nl',v[:,:,i_1],q[:,:,i_2]*q[:,:,0]) -  tr.einsum('nl,nl->nl',v[:,:,i_2],q[:,:,i_1]*q[:,:,0])) 
+	tmp = q[:,:,0]**2 - tr.sum(q[:,:,1:]**2, dim=-1)
+	out[:,:,1:] += tr.einsum('nld,nl->nld',v[:,:,1:], tmp )
+	tmp = 2*tr.einsum('nld,nld->nl',v[:,:,1:],q[:,:,1:])
+	out[:,:,1:] += tr.einsum('nld,nl->nld',q[:,:,1:], tmp )
+	out[:,:,0] = v[:,:,0]
+
+	#inv_q = 1.*q
+	#inv_q[:,:,1:] *= -1.
+	#out = quaternion_prod( inv_q ,quaternion_prod(v,q))
+
+	return out
 
 
 # this is correct
 def quaternion_prod(a,b):
 	shape_a = a.shape
 	c = tr.zeros_like(a)
-	c[:,:,1:] =  tr.cross(a[:,:,1:],b[:,:,1:]) +a[:,:,0].unsqueeze(-1)*b[:,:,1:] + b[:,:,0].unsqueeze(-1)*a[:,:,1:]
+	c[:,:,1:] =  tr.cross(a[:,:,1:],b[:,:,1:],dim=-1) +a[:,:,0].unsqueeze(-1)*b[:,:,1:] + b[:,:,0].unsqueeze(-1)*a[:,:,1:]
 	c[:,:,0] = a[:,:,0]*b[:,:,0] -  tr.einsum('ijd,ijd->ij',a[:,:,1:],b[:,:,1:]) 
 	return c
 
-
-# this is also correct
 def quaternion_a_inv_times_b(X,Y, with_0_comp = False):
 	shape_X = X.shape
 	shape_Y = Y.shape
@@ -303,19 +443,18 @@ def quaternion_a_inv_times_b(X,Y, with_0_comp = False):
 		i_1 = inds[j][1]
 		i_2 = inds[j][2]
 		c[:,:,:,i] = tr.einsum('nl,nk->nkl',Y[:,:,i_1],X[:,:,i_2]) -  tr.einsum('nl,nk->nkl',Y[:,:,i_2],X[:,:,i_1]) + tr.einsum('nk,nl->nkl',X[:,:,0],Y[:,:,i]) - tr.einsum('nl,nk->nkl',Y[:,:,0],X[:,:,i])
-	if with_0_comp:
-		c[:,:,:,0] = tr.einsum('nli,nki->nkl',Y[:,:,:],X[:,:,:])
+	c[:,:,:,0] = tr.einsum('nli,nki->nkl',Y[:,:,:],X[:,:,:])
 	return c
 
 
-# this is also correct
-def _quaternion_a_inv_times_b(a,b, with_0_comp = False):
-	shape_a = a.shape
-	c = tr.zeros_like(a)
-	c[:,:,1:] =  tr.cross(b[:,:,1:],a[:,:,1:]) +a[:,:,0].unsqueeze(-1)*b[:,:,1:] - b[:,:,0].unsqueeze(-1)*a[:,:,1:]
-	if with_0_comp:
-		c[:,:,0] =  tr.einsum('ijd,ijd->ij',a,b)
-	return c
+# # this is also correct
+# def _quaternion_a_inv_times_b(a,b, with_0_comp = False):
+# 	shape_a = a.shape
+# 	c = tr.zeros_like(a)
+# 	c[:,:,1:] =  tr.cross(b[:,:,1:],a[:,:,1:],dim=-1) +a[:,:,0].unsqueeze(-1)*b[:,:,1:] - b[:,:,0].unsqueeze(-1)*a[:,:,1:]
+# 	if with_0_comp:
+# 		c[:,:,0] =  tr.einsum('ijd,ijd->ij',a,b)
+# 	return c
 
 # this is also correct
 def _norm_im_a_inv_times_b(X,Y):

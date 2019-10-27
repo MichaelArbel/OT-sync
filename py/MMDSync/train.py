@@ -13,7 +13,7 @@ parser.add_argument('--log_in_file', action='store_true',  help='log output in f
 
 
 parser.add_argument('--device', default = 2 ,type= int,  help='gpu device')
-parser.add_argument('--dtype', default = 'float32' ,type= str,  help='gpu device')
+parser.add_argument('--dtype', default = 'float64' ,type= str,  help='gpu device')
 parser.add_argument('--seed', default = 999 ,type= int,  help='gpu device')
 
 parser.add_argument('--total_iters', default=10000, type=int, help='total number of epochs')
@@ -30,7 +30,7 @@ parser.add_argument('--num_particles', default = 100, type= int,  help='num_part
 
 parser.add_argument('--prior', default='gaussian', type=str, help='sampler for the initial particles')
 
-parser.add_argument('--kernel', default='laplacequaternion', type=str, help='kernel type')
+parser.add_argument('--kernel_cost', default='power_quaternion', type=str, help='kernel type')
 parser.add_argument('--kernel_log_bw',default = 0. ,type= float, help='bw of the gaussian kernel')
 
 parser.add_argument('--loss', default = 'mmd',type= str,  help='log directory for summaries and checkpoints')
