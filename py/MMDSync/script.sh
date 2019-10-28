@@ -1,46 +1,66 @@
-# # no noise
 
-# python train_sacred.py with device=0 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 with_noise=0 kernel=gaussian &
-# python train_sacred.py with device=1 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 with_noise=0 kernel=laplacequaternion &
-# python train_sacred.py with device=0 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 with_noise=0 kernel=gaussianquaternion &
+###########################################################################################
+##  To run this script either install sacred, or replace each command in the following way:
+###########################################################################################
 
+#python train_sacred.py with device=1 loss=sinkhorn log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=power_quaternion with_weights=0  product_particles=0 & 
 
+# becomes:
 
-# # # with noise
-
-# python train_sacred.py with device=1 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 with_noise=1 kernel=gaussian &
-# python train_sacred.py with device=0 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 with_noise=1 kernel=laplacequaternion & 
-# python train_sacred.py with device=1 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 with_noise=1 kernel=gaussianquaternion &
+#python train.py --device=1 --loss=sinkhorn --log_name=toy_exp --lr=.1 --freq_eval=10 --total_iters=10000 --num_particles=10 --completeness=0.1 --kernel_cost=power_quaternion --with_weights=0 --product_particles=0 & 
 
 
 
-# # # no noise
-
-# python train_sacred.py with device=0 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=1 completeness=0.1 with_noise=0 kernel=gaussian
-# python train_sacred.py with device=1 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=1 completeness=0.1 with_noise=0 kernel=laplacequaternion
-# python train_sacred.py with device=0 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=1 completeness=0.1 with_noise=0 kernel=gaussianquaternion
 
 
+#######  I-  Toy example   N=45, truemodes=1,   num_particles=10, completeness=0.1
 
-# # # with noise
+###### 1- Power Quaternion
 
-# python train_sacred.py with device=1 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=1 completeness=0.1 with_noise=1 kernel=gaussian
-# python train_sacred.py with device=0 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=1 completeness=0.1 with_noise=1 kernel=laplacequaternion
-# python train_sacred.py with device=1 loss=mmd log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=1 completeness=0.1 with_noise=1 kernel=gaussianquaternion
+## 1.1- sinkhorn ###########
 
+#python train_sacred.py with device=1 loss=sinkhorn log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=power_quaternion with_weights=0  product_particles=0 & 
 
-#python -m ipdb train.py --device=0 --loss=sinkhorn --log_name=new_exp --lr=.01 --freq_eval=10 --num_particles=10 --with_weights=0 --completeness=0.1 --with_noise=0 --kernel=laplacequaternion
+#python train_sacred.py with device=0 loss=sinkhorn log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=power_quaternion with_weights=1  product_particles=0 & 
 
+#python train_sacred.py with device=2 loss=sinkhorn log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=power_quaternion with_weights=0  product_particles=1 & 
 
-
-#python train_sacred.py with device=0 loss=sinkhorn log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 with_noise=0 kernel=gaussian total_iters=100000 &
-python train_sacred.py with device=0 loss=sinkhorn log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 with_noise=0 kernel=squared_euclidean &
-python train_sacred.py with device=0 loss=sinkhorn log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 kernel=power_quaternion &
-#python train_sacred.py with device=0 loss=sinkhorn log_name=new_exp lr=.01 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 with_noise=0 kernel=sinkhorn_gaussian &
-#python train_sacred.py with device=1 loss=mmd log_name=new_exp lr=.01 noise_level=0.05 freq_eval=10 num_particles=10 with_weights=0 completeness=0.1 with_noise=1 kernel=gaussian noise_decay_freq=1000  noise_decay=0.9 total_iters=100000 &
+# python train_sacred.py with device=0 loss=sinkhorn log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=power_quaternion with_weights=1  product_particles=1 & 
 
 
-#python train.py  loss=sinkhorn --kernel=laplacequaternion
+## 1.2- MMD ###############
+
+# python train_sacred.py with device=1 loss=mmd log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=power_quaternion with_weights=0  product_particles=0 with_noise=1 noise_level=0.5 noise_decay=0.5 & 
+
+# python train_sacred.py with device=2 loss=mmd log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=power_quaternion with_weights=1  product_particles=0 with_noise=1 noise_level=0.5 noise_decay=0.5  &
+
+# python train_sacred.py with device=0 loss=mmd log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=power_quaternion with_weights=0  product_particles=1 with_noise=1 noise_level=0.5 noise_decay=0.5 & 
+
+# python train_sacred.py with device=1 loss=mmd log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=power_quaternion with_weights=1  product_particles=1 with_noise=1 noise_level=0.5 noise_decay=0.5 & 
 
 
-#python -m ipdb train.py --device=1 --loss=sinkhorn --log_name=new_exp --lr=.01 --freq_eval=10 --num_particles=10 --with_weights=0 --completeness=0.1 --with_noise=0 --kernel=laplacequaternion
+###### 2- Squared Euclidean 
+
+## 2.1- sinkhorn ###########
+# python train_sacred.py with device=2 loss=sinkhorn log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=squared_euclidean with_weights=0  product_particles=0 & 
+
+# python train_sacred.py with device=0 loss=sinkhorn log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=squared_euclidean with_weights=1  product_particles=0 & 
+
+# python train_sacred.py with device=1 loss=sinkhorn log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=squared_euclidean with_weights=0  product_particles=1 & 
+
+# python train_sacred.py with device=2 loss=sinkhorn log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=squared_euclidean with_weights=1  product_particles=1 & 
+
+
+## 2.2- mmds ###########
+
+# python train_sacred.py with device=0 loss=mmd log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=squared_euclidean with_weights=0  product_particles=0 with_noise=1 noise_level=0.5 noise_decay=0.5 & 
+
+# python train_sacred.py with device=1 loss=mmd log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=squared_euclidean with_weights=1  product_particles=0 with_noise=1 noise_level=0.5 noise_decay=0.5 & 
+
+# python train_sacred.py with device=2 loss=mmd log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=squared_euclidean with_weights=0  product_particles=1 with_noise=1 noise_level=0.5 noise_decay=0.5 & 
+
+# python train_sacred.py with device=0 loss=mmd log_name=toy_exp lr=.1 freq_eval=10 total_iters=10000 num_particles=10 completeness=0.1 kernel_cost=squared_euclidean with_weights=1  product_particles=1 with_noise=1 noise_level=0.5 noise_decay=0.5 & 
+
+
+
+

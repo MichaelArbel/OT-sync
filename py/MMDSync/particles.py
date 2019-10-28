@@ -6,7 +6,7 @@ import utils
 import numpy as np
 
 class Particles(nn.Module):
-	def __init__(self,prior,N, num_particles , product_particles,noise_level , noise_decay,particle_type='euclidian'):
+	def __init__(self,prior,N, num_particles ,with_weights, product_particles,noise_level , noise_decay,particle_type='euclidian'):
 		super(Particles,self).__init__()
 		assert prior.type==particle_type
 		self.prior = prior
@@ -16,12 +16,15 @@ class Particles(nn.Module):
 		self.noise_level = noise_level
 		self.noise_decay = noise_decay
 		self.product_particles = product_particles
+		self.with_weights = with_weights
 		self.data = nn.Parameter(prior.sample(N,num_particles)) # N x num_particles x d
 		if self.product_particles:
-			self._weights = nn.Parameter((1./np.sqrt(num_particles))*tr.ones([N,num_particles],  dtype=self.data.dtype, device = self.data.device  ))
+			self._weights = (1./np.sqrt(num_particles))*tr.ones([N,num_particles],  dtype=self.data.dtype, device = self.data.device  )
 		else:
-			self._weights = nn.Parameter((1./np.sqrt(num_particles))*tr.ones([num_particles],  dtype=self.data.dtype, device = self.data.device  ))
+			self._weights = (1./np.sqrt(num_particles))*tr.ones([num_particles],  dtype=self.data.dtype, device = self.data.device  )
 			self._all_weights = tr.ones([N,num_particles],  dtype=self.data.dtype, device = self.data.device )
+		if self.with_weights:
+			self._weights = nn.Parameter(self._weights)
 	def add_noise(self):
 		noise = self.prior.sample(self.N,self.num_particles)
 		return self.data + self.noise_level*noise 
@@ -34,11 +37,11 @@ class Particles(nn.Module):
 		else:
 			return tr.einsum('k,nk->nk', self._weights**2, self._all_weights)
 class QuaternionParticles(Particles):
-	def __init__(self,prior, N, num_particles, product_particles,noise_level, noise_decay):
+	def __init__(self,prior, N, num_particles, with_weights,product_particles,noise_level, noise_decay):
 		# particle is a tensor   of shape N x num_paricles x d
 		# where d = 4 is the dimension of a normalized quaternion
 		#prior = BinghamGenerator(maxNumModes)
-		super(QuaternionParticles,self).__init__(prior,N,num_particles,product_particles, noise_level,noise_decay, particle_type='quaternion')
+		super(QuaternionParticles,self).__init__(prior,N,num_particles,with_weights,product_particles, noise_level,noise_decay, particle_type='quaternion')
 
 	def add_noise(self):
 

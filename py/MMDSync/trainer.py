@@ -70,16 +70,15 @@ class Trainer(object):
 	def get_loss(self):
 		if self.args.loss=='mmd':
 			kernel = get_kernel(self.args,self.dtype, self.device)
-			if self.args.with_weights==1:
-				return mmd.MMD_weighted(kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
-			else:
-				return mmd.MMD(kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
+			#if self.args.with_weights==1:
+			return mmd.MMD_weighted(kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
+			#else:
+			#	return mmd.MMD(kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
 		elif self.args.loss=='sinkhorn':
-			if self.args.with_weights==1:
-				return sinkhorn.Sinkhorn_weighted(self.args.kernel_cost, self.particles,self.RM_map,self.args.SH_eps)
-			else:
-
-				return sinkhorn.Sinkhorn(self.args.kernel_cost, self.particles,self.RM_map,self.args.SH_eps)
+			#if self.args.with_weights==1:
+			return sinkhorn.Sinkhorn_weighted(self.args.kernel_cost, self.particles,self.RM_map,self.args.SH_eps)
+			#else:
+			#	return sinkhorn.Sinkhorn(self.args.kernel_cost, self.particles,self.RM_map,self.args.SH_eps)
 		else:
 			raise NotImplementedError()
 	def get_optimizer(self,lr):
@@ -95,13 +94,16 @@ class Trainer(object):
 		if self.args.model =='synthetic':
 			num_particles = int(0.1*self.args.num_particles) 
 			self.true_particles = self.prior.sample(self.args.N, num_particles)
+			# fix the first camera to be identity
+			self.true_particles[0,:,0] = 1.
+			self.true_particles[0,:,1:] = 0.
 			self.true_weights = (1./num_particles)*torch.ones([self.args.N, num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
-			if self.args.with_weights==1:
-				rm, rm_weights =self.RM_map(self.true_particles,  self.true_weights )
-			else:
-				rm = self.RM_map(self.true_particles)
-				V,N,_ = rm.shape
-				rm_weights = (1./N)*torch.ones([V,N], dtype=rm.dtype, device=rm.device)
+			#if self.args.with_weights==1:
+			rm, rm_weights =self.RM_map(self.true_particles,  self.true_weights )
+			#else:
+			#	rm = self.RM_map(self.true_particles)
+			#	V,N,_ = rm.shape
+			#	rm_weights = (1./N)*torch.ones([V,N], dtype=rm.dtype, device=rm.device)
 				
 			return rm, rm_weights
 		else:
@@ -154,10 +156,10 @@ class Trainer(object):
 
 		#print( ' Min norm  ' + str(min_norm.item()) +  ' Max_norm ' + str(max_norm.item()))
 		#rm_particles = self.RM_map(self.particles)
-		if self.args.with_weights==1:
-			loss = self.loss(self.true_RM, self.true_RM_weights)
-		else:
-			loss = self.loss(self.true_RM)
+		#if self.args.with_weights==1:
+		loss = self.loss(self.true_RM, self.true_RM_weights)
+		#else:
+		#	loss = self.loss(self.true_RM)
 		if iteration==86:
 			print('bug here')
 		#print('particles')
@@ -189,20 +191,17 @@ class Trainer(object):
 		out['particles'] = self.particles.data.cpu().detach().numpy()
 		out['time'] = time.time()
 		out['iteration'] = iteration
-		if self.args.with_weights:
-			out['weights'] = self.particles.weights().cpu().detach().numpy()
+		out['weights'] = self.particles.weights().cpu().detach().numpy()
 
-		
 		if self.args.model =='synthetic':
-			
-			if self.args.with_weights==1:
-				out['eval_dist'] =   self.eval_loss(self.particles.data,self.true_particles, self.particles.weights(), self.true_weights).item()
-				rm, rm_weights =self.RM_map(self.particles.data,  self.particles.weights() )
-				out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
-			else:
-				out['eval_dist'] =   self.eval_loss(self.particles.data,self.true_particles, None,None).item()
-				rm =self.RM_map(self.particles.data)
-				out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,None,None).item()
+			#U = utils.forward_quaternion_X_times_Y_inv_prod(self.true_particles[0,:,:].unsqueeze(0),self.particles.data[0,:,:].unsqueeze(0))
+			out['eval_dist'] =   self.eval_loss(self.particles.data,self.true_particles, self.particles.weights(), self.true_weights).item()
+			#if self.args.with_weights==1:
+			rm, rm_weights =self.RM_map(self.particles.data,  self.particles.weights() )
+			out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
+			#else:
+			#	rm =self.RM_map(self.particles.data)
+			#	out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,None,None).item()
 
 			
 			
@@ -227,9 +226,9 @@ def get_kernel(args,dtype, device):
 
 def get_particles(args, prior):
 	if args.particles_type == 'euclidian':
-		return particles.Particles(prior,args.N, args.num_particles , args.product_particles, args.noise_level, args.noise_decay)
+		return particles.Particles(prior,args.N, args.num_particles ,args.with_weights, args.product_particles, args.noise_level, args.noise_decay)
 	elif args.particles_type== 'quaternion':
-		return particles.QuaternionParticles(prior, args.N, args.num_particles ,args.product_particles,args.noise_level, args.noise_decay)
+		return particles.QuaternionParticles(prior, args.N, args.num_particles , args.with_weights, args.product_particles,args.noise_level, args.noise_decay)
 	else:
 		raise NotImplementedError()
 
@@ -239,21 +238,21 @@ def get_rm_map(args,edges):
 	else:
 		grad_type='euclidean'
 	if args.particles_type=='euclidian':
-		if args.with_weights==1:
-			return particles.RelativeMeasureMapWeights(edges,grad_type)
-		else:
-			return particles.RelativeMeasureMap(edges,grad_type)
+		#if args.with_weights==1:
+		return particles.RelativeMeasureMapWeights(edges,grad_type)
+		#else:
+		#	return particles.RelativeMeasureMap(edges,grad_type)
 	elif args.particles_type=='quaternion':
-		if args.with_weights==1:
-			if args.product_particles==1:
-				return particles.QuaternionRelativeMeasureMapWeightsProduct(edges,grad_type)
-			else:
-				return particles.QuaternionRelativeMeasureMapWeights(edges,grad_type)
+		#if args.with_weights==1:
+		if args.product_particles==1:
+			return particles.QuaternionRelativeMeasureMapWeightsProduct(edges,grad_type)
 		else:
-			if args.product_particles==1:
-				return particles.QuaternionRelativeMeasureMapProduct(edges,grad_type)
-			else:
-				return particles.QuaternionRelativeMeasureMap(edges,grad_type)
+			return particles.QuaternionRelativeMeasureMapWeights(edges,grad_type)
+		#else:
+		#	if args.product_particles==1:
+		#		return particles.QuaternionRelativeMeasureMapProduct(edges,grad_type)
+		#	else:
+		#		return particles.QuaternionRelativeMeasureMap(edges,grad_type)
 	else:
 		raise NotImplementedError()
 

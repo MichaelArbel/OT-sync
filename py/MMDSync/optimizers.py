@@ -73,7 +73,9 @@ class quaternion_SGD(Optimizer):
 					effective_lr = compute_lr(group['lr'],d_p,loss)
 					v = - effective_lr* d_p
 					param.data = utils.quaternion_exp_map(param.data,v, north_hemisphere=False)
-					
+					param.data[0,:,0] = 1.
+					param.data[0,:,1:] = 0.
+
 				else:
 					v = - 0.1*group['lr']* utils.sphere_proj(param.data,d_p)
 					param.data = utils.sphere_exp_map(param.data,v, north_hemisphere=False)
