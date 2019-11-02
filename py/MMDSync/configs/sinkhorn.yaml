@@ -1,0 +1,21 @@
+log_dir: '/nfs/data/michaela/projects/OptSync'
+dtype : '32'
+particles_type : 'quaternion'
+optimizer : 'SGD'
+prior : 'gaussian'
+loss : 'sinkhorn'
+
+
+# kernel_cost : 'power_quaternion'
+# with_weights : 1
+# product_particles : 1
+# num_particles : 20
+
+
+
+kernel_cost : 'power_quaternion'
+with_weights : 1
+product_particles : 0
+num_particles : 10
+power : 1.1
+lr : 0.1
