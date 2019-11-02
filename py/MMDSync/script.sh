@@ -66,7 +66,7 @@
 ####################################################################
 ####################################################################
 
-python -m ipdb train.py --device=2 --log_name=toy_exp --config_file=configs/test_config.yaml --lr=.1  &
+python -m ipdb train.py --device=2 --log_name=toy_exp --config_method=configs/sinkhorn.yaml --config_data=configs/simple_data.yaml --lr=.1  &
 
 
 

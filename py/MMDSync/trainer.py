@@ -36,8 +36,8 @@ class Trainer(object):
 		elif args.device==-2:
 			self.device = 'cpu'
 		self.dtype = get_dtype(args)
-		if args.product_particles:
-			rm_map = '_RM_product'
+		if args.product_particles==1:
+			rmp_map = '_RM_product'
 		else:
 			rmp_map = '_RM_joint'
 		if args.with_weights:
@@ -89,19 +89,14 @@ class Trainer(object):
 		self.optimizer = self.get_optimizer(self.args.lr)
 		self.scheduler = get_scheduler(self.args, self.optimizer)
 		self.eval_loss = self.get_eval_loss()
+		self.old_loss = np.inf
 
 	def get_loss(self):
+		kernel = get_kernel(self.args,self.dtype, self.device)
 		if self.args.loss=='mmd':
-			kernel = get_kernel(self.args,self.dtype, self.device)
-			#if self.args.with_weights==1:
 			return mmd.MMD_weighted(kernel, self.particles,self.RM_map, with_noise = self.args.with_noise)
-			#else:
-			#	return mmd.MMD(kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
 		elif self.args.loss=='sinkhorn':
-			#if self.args.with_weights==1:
-			return sinkhorn.Sinkhorn_weighted(self.args.kernel_cost, self.particles,self.RM_map,self.args.SH_eps)
-			#else:
-			#	return sinkhorn.Sinkhorn(self.args.kernel_cost, self.particles,self.RM_map,self.args.SH_eps)
+			return sinkhorn.Sinkhorn_weighted(kernel, self.particles,self.RM_map,self.args.SH_eps)
 		else:
 			raise NotImplementedError()
 	def get_optimizer(self,lr):
@@ -111,7 +106,7 @@ class Trainer(object):
 				return optim.SGD(self.particles.parameters(), lr=lr)
 		elif self.args.particles_type=='quaternion':
 			if self.args.optimizer=='SGD':
-				return optimizers.quaternion_SGD(self.particles.parameters(), lr=lr)
+				return optimizers.quaternion_SGD(self.particles.parameters(), lr=lr, weights_factor= self.args.weights_factor)
 
 	def get_true_rm(self):
 		if self.args.model =='synthetic':
@@ -149,8 +144,9 @@ class Trainer(object):
 			#	print(loss)
 			if not np.isfinite(loss):
 				break 
-			#if self.args.use_scheduler:
-			#	self.scheduler.step(loss)
+			if self.args.use_scheduler:
+				#self.scheduler.step(loss)
+				self.scheduler.step()
 			if np.mod(iteration,self.args.noise_decay_freq)==0 and iteration>0:
 				self.particles.update_noise_level()
 			if np.mod(iteration, self.args.freq_eval)==0:
@@ -172,27 +168,61 @@ class Trainer(object):
 		#rm_particles = self.RM_map(self.particles)
 		#if self.args.with_weights==1:
 		loss = self.loss(self.true_RM, self.true_RM_weights)
+		#loss = self.loss(self.true_particles, self.true_weights)
 		#else:
 		#	loss = self.loss(self.true_RM)
-		if iteration==86:
-			print('bug here')
-		#print('particles')
-		#print(self.particles.data)
-		#print('ground_truth')
-		#print(self.true_particles)
+
+		#print(self.particles.data )
 		
+
 		#loss = self.loss(self.true_particles)
 
 		loss.backward()
-		self.optimizer.param_groups[0]['lr'] = self.args.lr#/np.sqrt(iteration+1)
-		self.optimizer.step(loss=loss)
+
+		loss = loss.item()
+		if self.args.with_backtracking:
+			self.backtracking(loss)
+		else:
+			if self.args.particles_type=='euclidian':
+				self.optimizer.step()
+			else:
+				self.optimizer.step(loss=loss)
+		if loss> self.old_loss:
+			print('increasing loss')
+		#	self.optimizer.param_groups[0]['lr'] =0.5*self.optimizer.param_groups[0]['lr']
+		#	print('decreased lr')
+		self.old_loss = loss
+		
+
+
+		#if self.args.particles_type=='euclidian':
+		#	self.optimizer.step()
+		#else:
+		#	self.optimizer.step(loss=loss)
+			#self.optimizer.step()
 		#print(self.particles.data)
-		loss_val = loss.item()
+		
 		#self.scheduler.step(loss_val)
 
 		#if np.mod(iteration,100)==0:
-		print('Iteration: '+ str(iteration) + ' loss: ' + str(round(loss_val,3))  + ' lr ' + str(self.optimizer.param_groups[0]['lr']) )
-		return loss_val
+		print('Iteration: '+ str(iteration) + ' loss: ' + str(round(loss,3))  + ' lr ' + str(self.optimizer.param_groups[0]['lr']) )
+		return loss
+	def backtracking(self,loss):
+		self.optimizer.keep_weights()
+		done = False
+		count = 0
+		count_max = 1
+		while not done:
+			self.optimizer.reset_weights()
+			self.optimizer.step(loss=loss)
+			#self.optimizer.step(loss=None)
+			with torch.no_grad():
+				new_loss = self.loss(self.true_RM, self.true_RM_weights).item()
+			done = new_loss<=loss or count>count_max
+			count +=1
+			self.optimizer.decrease_lr()
+		self.optimizer.reset_lr(self.args.lr)
+
 	def eval(self,iteration, loss_val, with_config=False):
 		out ={}
 		if with_config:
@@ -232,7 +262,7 @@ def get_kernel(args,dtype, device):
 	elif args.kernel_cost == 'quaternion':
 		return ExpQuaternionGeodesicDist(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
 	elif args.kernel_cost == 'power_quaternion':
-		return ExpPowerQuaternionGeodesicDist(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
+		return ExpPowerQuaternionGeodesicDist(args.power,1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
 	elif args.kernel_cost == 'sinkhorn_gaussian':
 		return None
 	else:
@@ -317,7 +347,9 @@ def get_dtype(args):
 
 def get_scheduler(args, optimizer):
 	if args.scheduler == 'ReduceLROnPlateau':
-		return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',patience = 10,verbose=True, factor = 0.9)
+		return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',patience = args.lr_step_size,verbose=True, factor = args.lr_decay)
+	elif args.scheduler == 'StepLR':
+		return torch.optim.lr_scheduler.StepLR(optimizer, step_size = args.lr_step_size,gamma = args.lr_decay)
 
 def save(writer,loss,particles,iteration, save_particles=True):
 

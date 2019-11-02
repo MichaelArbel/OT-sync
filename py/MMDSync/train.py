@@ -4,9 +4,9 @@ torch.backends.cudnn.benchmark = True
 import yaml
 from trainer import Trainer
 
-def make_flags(args=None):
-    if args.config_file:
-        config = yaml.load(open(args.config_file))
+def make_flags(args,config_file):
+    if config_file:
+        config = yaml.load(open(config_file))
         dic = vars(args)
         all(map(dic.pop, config))
         dic.update(config)
@@ -30,7 +30,9 @@ parser.add_argument('--seed', default = 0 ,type= int,  help='gpu device')
 parser.add_argument('--total_iters', default=10000, type=int, help='total number of epochs')
 parser.add_argument('--lr', default=.01, type=float, help='learning rate')
 parser.add_argument('--use_scheduler',   action='store_true',  help='enables scheduler for learning rate')
-parser.add_argument('--scheduler',  default='ReduceLROnPlateau',  type=str,  help='enables scheduler for learning rate')
+parser.add_argument('--scheduler',  default='StepLR',  type=str,  help='enables scheduler for learning rate')
+parser.add_argument('--lr_step_size',  default=1000, type=int,  help='enables scheduler for learning rate')
+parser.add_argument('--lr_decay',  default=.1, type=float,   help='enables scheduler for learning rate')
 
 
 
@@ -54,8 +56,8 @@ parser.add_argument('--completeness', default = .5 ,type= float,  help='gpu devi
 parser.add_argument('--model',  default = 'synthetic' ,type= str,   help='type of model')
 parser.add_argument('--optimizer',  default = 'SGD' ,type= str,   help=' scpecify optimizer ')
 parser.add_argument('--save',  default = 1 ,type= int,   help=' scpecify optimizer ')
-parser.add_argument('--SH_eps',  default = 0.001 ,type= float,   help=' scpecify optimizer ')
-parser.add_argument('--SH_max_iter',  default = 100 ,type= float,   help=' scpecify optimizer ')
+parser.add_argument('--SH_eps',  default = 0.0001 ,type= float,   help=' scpecify optimizer ')
+parser.add_argument('--SH_max_iter',  default = 1000 ,type= float,   help=' scpecify optimizer ')
 parser.add_argument('--eval_loss',  default = 'sinkhorn' ,type= str,   help=' scpecify optimizer ')
 parser.add_argument('--freq_eval',  default = 10 ,type= float,   help=' scpecify optimizer ')
 parser.add_argument('--with_weights',  default = 1 ,type= int,   help=' scpecify optimizer ')
@@ -72,17 +74,22 @@ parser.add_argument('--true_rm_noise_level',  default = -1. ,type= float,   help
 parser.add_argument('--true_bernoulli_noise',  default = -1.,type= float,   help=' scpecify optimizer ')
 
 parser.add_argument('--unfaithfulness',  action='store_true',      help=' scpecify optimizer ')
-parser.add_argument('--config_file',  default = '',type= str,   help=' scpecify optimizer ')
+parser.add_argument('--config_method',  default = '',type= str,   help=' scpecify optimizer ')
+parser.add_argument('--config_data',  default = '',type= str,   help=' scpecify optimizer ')
+
+parser.add_argument('--power',  default = 1.2,type= float,   help=' scpecify optimizer ')
+parser.add_argument('--with_backtracking',  action='store_true',        help=' scpecify optimizer ')
 
 
-
+parser.add_argument('--weights_factor',  default = 0.001,type= float,   help=' scpecify optimizer ')
 
 
 
 
 
 args = parser.parse_args()
-args = make_flags(args)
+args = make_flags(args,args.config_method)
+args = make_flags(args,args.config_data)
 
 trainer = Trainer(args)
 trainer.train()

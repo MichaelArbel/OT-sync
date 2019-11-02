@@ -77,14 +77,15 @@ def generate_graph(N, completeness):
 
 	G = np.zeros((N,N))
 	G[rows, cols] = vals
-	
-	e = I.shape[1]
-	edges = I
-	return edges
+	G = nx.from_numpy_matrix(G)
+	if nx.is_connected(G):
+		return I
+	else:
+		print('The graph is not connected!!')
 
-def power_quaternion_geodesic_distance(X,Y):
 
-    return quaternion_geodesic_distance(X,Y)**1.2
+def power_quaternion_geodesic_distance(p,X,Y):
+	return quaternion_geodesic_distance(X,Y)**p
 
 
 def min_squared_eucliean_distance(X,Y):
@@ -94,6 +95,7 @@ def min_squared_eucliean_distance(X,Y):
 
 
 def quaternion_exp_map(a,v, north_hemisphere=False):
+	#print(v)
 	alpha  = tr.norm(v[:,:,1:],dim=-1)
 	tmp = tr.sin(alpha)/alpha
 	beta = tr.ones_like(alpha)
@@ -111,6 +113,7 @@ def quaternion_exp_map(a,v, north_hemisphere=False):
 	#prod = tr.sign(prod[:,:,0]).unsqueeze(-1)*prod
 	mask = (prod[:,:,0] <0)
 	prod[mask]*=-1
+	#print(prod)
 	return prod
 
 	# if north_hemisphere:

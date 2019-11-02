@@ -58,7 +58,7 @@ class mmd2_func(tr.autograd.Function):
 			gram_XY = kernel.kernel(true_data,noisy_data)
 			gram_XX = kernel.kernel(true_data, true_data)
 			gram_YY = kernel.kernel(fake_data,noisy_data)
-			gram_YY = kernel.kernel(noisy_data,noisy_data)
+			#gram_YY = kernel.kernel(noisy_data,noisy_data)
 			#gram_YY_t = kernel.kernel(fake_data,fake_data)
 			#gram_XY_t = kernel.kernel(true_data,fake_data)
 			N_cameras,N_y,N_z = gram_YY.shape
@@ -68,7 +68,7 @@ class mmd2_func(tr.autograd.Function):
 			term_XX = N_cameras*tr.mean(gram_XX)
 			#mmd2_for_grad =  N_z*(term_YY - term_XY)
 			mmd2 =  term_XX + term_YY -2.*term_XY
-			mmd2_for_grad =  N_z*mmd2
+			mmd2_for_grad =  N_z*( term_YY - term_XY)
 			##### warning this is dangerous
 			#mmd2_for_grad =  N_z*(tr.mean(gram_XY))
 			#mmd2 = mmd2_for_grad

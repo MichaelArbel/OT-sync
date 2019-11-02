@@ -41,6 +41,7 @@ class Gaussian(Exp):
 
 	def __init__(self, D,  log_sigma, particles_type='euclidian', dtype = FDTYPE, device = DEVICE):
 		Exp.__init__(self, D, log_sigma, particles_type=particles_type, dtype = dtype, device = device)
+		self.kernel_type = 'squared_euclidean'
 	def _dist(self,X, Y):
 		tmp = (X.unsqueeze(-2) - Y.unsqueeze(-3))**2
 		dist =  tr.sum(tmp,dim=-1)
@@ -48,14 +49,17 @@ class Gaussian(Exp):
 class ExpQuaternionGeodesicDist(Exp):
 	def __init__(self, D,  log_sigma, particles_type='euclidian', dtype = FDTYPE, device = DEVICE):
 		Exp.__init__(self, D, log_sigma, particles_type=particles_type, dtype = dtype, device = device)
+		self.kernel_type = 'quaternion'
 	def _dist(self,X, Y):
 			return utils.quaternion_geodesic_distance(X,Y)
 
 class ExpPowerQuaternionGeodesicDist(Exp):
-	def __init__(self, D,  log_sigma, particles_type='euclidian', dtype = FDTYPE, device = DEVICE):
+	def __init__(self,power, D,  log_sigma, particles_type='euclidian', dtype = FDTYPE, device = DEVICE):
 		Exp.__init__(self, D, log_sigma, particles_type=particles_type, dtype = dtype, device = device)
+		self.power = power
+		self.kernel_type = 'power_quaternion'
 	def _dist(self,X, Y):
-			return utils.power_quaternion_geodesic_distance(X,Y)
+			return utils.quaternion_geodesic_distance(X,Y)**self.power
 
 
 

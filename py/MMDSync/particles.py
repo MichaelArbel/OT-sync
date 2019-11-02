@@ -105,6 +105,9 @@ class RelativeMeasureMapWeights(nn.Module):
 		N = xi.shape[0] 
 		RM_weights = weights[0,:].unsqueeze(0).repeat(N,1)
 
+		#RM_weights = weights
+		#ratios = particles 
+
 		return ratios,RM_weights
 
 
@@ -214,6 +217,11 @@ class QuaternionRelativeMeasureMapWeightsProduct(QuaternionRelativeMeasureMapWei
 		N,K,_ = xi.shape
 		N,L,_ = xj.shape
 
+		#xj = tr.ones_like(xi)
+		#xj = xj/tr.norm(xj,dim=-1).unsqueeze(-1)
+
+
+
 		if self.grad_type=='euclidean':
 			ratios = utils.forward_quaternion_X_times_Y_inv_prod(xi,xj)
 		elif self.grad_type=='quaternion':
@@ -221,6 +229,10 @@ class QuaternionRelativeMeasureMapWeightsProduct(QuaternionRelativeMeasureMapWei
 
 		ratios = ratios.permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
 		RM_weights = tr.einsum('nk,nl->nkl', weights[i,:],weights[j,:]).reshape([N,-1])
+
+
+		#ratios = particles
+		#RM_weights = weights
 
 		return ratios,RM_weights
 
