@@ -6,11 +6,11 @@ eng = matlab.engine.start_matlab()
 import numpy as np
 import cv2
 
-import bingham.plot_help as db
+import plot_help as db
 
-eng.addpath('bingham', nargout=0)
-eng.addpath('bingham/tools', nargout=0)
-eng.addpath('bingham/visualization', nargout=0)
+#eng.addpath('bingham', nargout=0)
+#eng.addpath('bingham/tools', nargout=0)
+#eng.addpath('bingham/visualization', nargout=0)
 
 # The quality of the rendering. It is super slow so for testing I always set it to 50 and for the final renderings back to 400!
 quality = 50

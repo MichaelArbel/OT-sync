@@ -1,8 +1,17 @@
 import argparse
 import torch
 torch.backends.cudnn.benchmark = True
-
+import yaml
 from trainer import Trainer
+
+def make_flags(args=None):
+    if args.config_file:
+        config = yaml.load(open(args.config_file))
+        dic = vars(args)
+        all(map(dic.pop, config))
+        dic.update(config)
+    return args
+
 
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -16,7 +25,7 @@ parser.add_argument('--log_in_file', action='store_true',  help='log output in f
 parser.add_argument('--device', default = 0 ,type= int,  help='gpu device')
 parser.add_argument('--dtype', default = 'float64' ,type= str,  help='gpu device')
 
-parser.add_argument('--seed', default = 999 ,type= int,  help='gpu device')
+parser.add_argument('--seed', default = 0 ,type= int,  help='gpu device')
 
 parser.add_argument('--total_iters', default=10000, type=int, help='total number of epochs')
 parser.add_argument('--lr', default=.01, type=float, help='learning rate')
@@ -56,9 +65,24 @@ parser.add_argument('--run_id',  default = 0,type= int,   help=' scpecify optimi
 
 
 
+parser.add_argument('--true_prior',  default='gaussian', type=str,  help=' scpecify optimizer ')
+parser.add_argument('--num_true_particles',  default = 1 ,type= int,   help=' scpecify optimizer ')
+parser.add_argument('--true_product_particles',  action='store_true',   help=' scpecify optimizer ')
+parser.add_argument('--true_rm_noise_level',  default = -1. ,type= float,   help=' scpecify optimizer ')
+parser.add_argument('--true_bernoulli_noise',  default = -1.,type= float,   help=' scpecify optimizer ')
+
+parser.add_argument('--unfaithfulness',  action='store_true',      help=' scpecify optimizer ')
+parser.add_argument('--config_file',  default = '',type= str,   help=' scpecify optimizer ')
+
+
+
+
+
+
 
 
 args = parser.parse_args()
+args = make_flags(args)
 
 trainer = Trainer(args)
 trainer.train()

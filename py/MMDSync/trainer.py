@@ -27,6 +27,7 @@ torch.backends.cudnn.deterministic = True
 
 class Trainer(object):
 	def __init__(self,args):
+		torch.manual_seed(args.seed)
 		self.args = args
 		if args.device >-1:
 			self.device = 'cuda:'+str(args.device) if torch.cuda.is_available() and args.device>-1 else 'cpu'
@@ -35,10 +36,32 @@ class Trainer(object):
 		elif args.device==-2:
 			self.device = 'cpu'
 		self.dtype = get_dtype(args)
-		self.log_dir = os.path.join(args.log_dir,str(args.run_id) + '_'+ args.log_name )
+		if args.product_particles:
+			rm_map = '_RM_product'
+		else:
+			rmp_map = '_RM_joint'
+		if args.with_weights:
+			weights = '_with_weights'
+		else:
+			weights = '_no_weights'
+		if args.unfaithfulness:
+			unfaithfulness = 'true'
+		else:
+			unfaithfulness = 'false'
+		if args.true_product_particles:
+			true_prod = 'prod_true'
+		else:
+			true_prod = 'prod_false'
+
+		model_name = args.model +'_' +  true_prod + '_N_' +str(args.num_true_particles) + '_noise_' +str(args.true_rm_noise_level)+'_B_noise_' + str(args.true_bernoulli_noise) + '_unfaithfulness_' + str(unfaithfulness) 
+		method_name =  args.loss+'_' +args.kernel_cost + '_'+ weights + rmp_map
+		self.log_dir = os.path.join(args.log_dir, args.log_name,  model_name , method_name, str(args.run_id))
 
 		if not os.path.isdir(self.log_dir):
-			os.mkdir(self.log_dir)
+			from pathlib import Path
+			path   = Path(self.log_dir)
+			path.mkdir(parents=True, exist_ok=True)
+			#os.mkdir(self.log_dir)
 		
 		if args.log_in_file:
 			self.log_file = open(os.path.join(self.log_dir, 'log.txt'), 'w', buffering=1)
@@ -59,7 +82,7 @@ class Trainer(object):
 		np.random.seed(self.args.seed)
 		self.edges = get_edges(self.args)
 		self.RM_map = get_rm_map(self.args,self.edges)
-		self.prior = self.get_prior(self.args)
+		self.prior = get_prior(self.args, self.dtype, self.device)
 		self.true_RM, self.true_RM_weights = self.get_true_rm()
 		self.particles = get_particles(self.args, self.prior)
 		self.loss = self.get_loss()
@@ -71,7 +94,7 @@ class Trainer(object):
 		if self.args.loss=='mmd':
 			kernel = get_kernel(self.args,self.dtype, self.device)
 			#if self.args.with_weights==1:
-			return mmd.MMD_weighted(kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
+			return mmd.MMD_weighted(kernel, self.particles,self.RM_map, with_noise = self.args.with_noise)
 			#else:
 			#	return mmd.MMD(kernel, self.particles,self.RM_map, with_noise = (self.args.with_noise==1))
 		elif self.args.loss=='sinkhorn':
@@ -92,18 +115,19 @@ class Trainer(object):
 
 	def get_true_rm(self):
 		if self.args.model =='synthetic':
-			num_particles = int(0.1*self.args.num_particles) 
-			self.true_particles = self.prior.sample(self.args.N, num_particles)
-			# fix the first camera to be identity
+			true_args = make_true_dict(self.args)
+
+			true_prior = get_prior(true_args, self.dtype, self.device)
+			true_RM_map = get_true_rm_map(true_args, self.edges, self.dtype, self.device)
+			#num_particles = self.args.num_true_particles 
+			self.true_particles = true_prior.sample(true_args.N, true_args.num_particles)
+			# Fixing the pose of the first camera!
 			self.true_particles[0,:,0] = 1.
 			self.true_particles[0,:,1:] = 0.
-			self.true_weights = (1./num_particles)*torch.ones([self.args.N, num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
-			#if self.args.with_weights==1:
-			rm, rm_weights =self.RM_map(self.true_particles,  self.true_weights )
-			#else:
-			#	rm = self.RM_map(self.true_particles)
-			#	V,N,_ = rm.shape
-			#	rm_weights = (1./N)*torch.ones([V,N], dtype=rm.dtype, device=rm.device)
+			# Weights are uniform
+			self.true_weights = (1./true_args.num_particles)*torch.ones([true_args.N, true_args.num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
+			
+			rm, rm_weights = true_RM_map(self.true_particles,  self.true_weights )
 				
 			return rm, rm_weights
 		else:
@@ -112,17 +136,7 @@ class Trainer(object):
 		if self.args.eval_loss=='sinkhorn':
 			return sinkhorn.SinkhornEval(self.args.SH_eps, self.args.SH_max_iter,'quaternion')
 
-	def get_prior(self,args):
-		if args.prior =='mixture_gaussians' and args.particles_type=='euclidian':
-			return prior.MixtureGaussianPrior(args.maxNumModes, self.dtype, self.device)
-		elif args.prior =='gaussian' and args.particles_type=='quaternion':
-			return prior.GaussianQuaternionPrior(self.dtype, self.device)
-		elif args.prior == 'gaussian' and args.particles_type=='euclidian':
-			return prior.GaussianPrior(self.dtype, self.device)
-		elif args.prior=='bingrham ':
-			raise NotImplementedError()
-		else:
-			raise NotImplementedError()
+
 	def train(self):
 		print("Starting Training Loop...")
 		start_time = time.time()
@@ -257,6 +271,37 @@ def get_rm_map(args,edges):
 		raise NotImplementedError()
 
 
+def get_true_rm_map(args,edges, dtype, device):
+	if args.kernel_cost=='quaternion' or args.kernel_cost=='power_quaternion':
+		grad_type='quaternion'
+	else:
+		grad_type='euclidean'
+	if args.true_rm_noise_level>0.:
+		noise_sampler = get_prior(args, dtype, device)
+	else:
+		noise_sampler= None
+	if args.particles_type=='euclidian':
+		return particles.RelativeMeasureMapWeights(edges,grad_type)
+	elif args.particles_type=='quaternion':
+		if args.product_particles==1:
+			return particles.QuaternionRelativeMeasureMapWeightsProduct(edges,grad_type, noise_sampler,args.true_rm_noise_level,args.true_bernoulli_noise,args.unfaithfulness)
+		else:
+			return particles.QuaternionRelativeMeasureMapWeights(edges,grad_type, noise_sampler,args.true_rm_noise_level,args.true_bernoulli_noise,args.unfaithfulness)
+	else:
+		raise NotImplementedError()
+
+def get_prior(args, dtype, device):
+	if args.prior =='mixture_gaussians' and args.particles_type=='euclidian':
+		return prior.MixtureGaussianPrior(args.maxNumModes, dtype, device)
+	elif args.prior =='gaussian' and args.particles_type=='quaternion':
+		return prior.GaussianQuaternionPrior(dtype, device)
+	elif args.prior == 'gaussian' and args.particles_type=='euclidian':
+		return prior.GaussianPrior(dtype,device)
+	elif args.prior=='bingrham ':
+		raise NotImplementedError()
+	else:
+		raise NotImplementedError()
+
 
 
 def get_edges(args):
@@ -292,5 +337,25 @@ def save_pickle(out,exp_dir,name):
 	os.makedirs(exp_dir, exist_ok=True)
 	with  open(os.path.join(exp_dir,name+".pickle"),"wb") as pickle_out:
 		pickle.dump(out, pickle_out)
+
+
+
+class Struct:
+	def __init__(self, **entries):
+		self.__dict__.update(entries)
+
+def make_true_dict(args):
+	true_args= {}
+	true_args['prior'] = args.true_prior
+	true_args['particles_type']= args.particles_type
+	true_args['N'] = args.N
+	true_args['num_particles'] = args.num_true_particles
+	true_args['product_particles'] = args.true_product_particles
+	true_args['kernel_cost']	 = args.kernel_cost
+	true_args['true_rm_noise_level'] = args.true_rm_noise_level
+	true_args['true_bernoulli_noise'] = args.true_bernoulli_noise
+	true_args['unfaithfulness'] = args.unfaithfulness
+	true_args = Struct(**true_args)
+	return true_args
 
 
