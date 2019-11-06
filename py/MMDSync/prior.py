@@ -67,3 +67,65 @@ class GaussianPrior(Prior):
 		#Xs = Xs/tr.norm(Xs,dim=-1).unsqueeze(-1)
 
 		return Xs
+
+# class MixtureBingham(Prior):
+# 	def __init__(self,dtype, device):
+# 		super(MixtureBingham,self).__init__(dtype,device,name='mixture_bingham')
+# 		self.type = 'mixture_bingham'
+# 		import matlab.engine
+# 		self.eng = matlab.engine.start_matlab()
+
+# 	def sample(self, N,num_particles):
+# 		X_s = np.random.randn(N,num_particles,4)
+# 		bingham = db.get_bingham(eng, distributions, GT=None, precision=quality)  # without ground truth
+		
+# 		n = matlab.double([n])
+# 		B = [V,Z,F]
+# 		Y = eng.bingham_sample(V,Z,n)
+
+# 		Xs = tr.tensor(Xs,dtype=self.dtype, device=self.device)
+# 		#Xs[:,:,0] = tr.abs(Xs[:,:,0])
+
+# 		#Xs = Xs/tr.norm(Xs,dim=-1).unsqueeze(-1)
+
+# 		return Xs
+
+
+
+# class Anular(Prior):
+# 	def __init__(self, maxNumModes, dtype, device):
+# 		super(Anular,self).__init__(dtype,device,name='anular')
+# 		self.maxNumModes = maxNumModes
+# 	def sample(self, N, num_particles):
+
+
+
+#     # generate emprical prior distributions for each node
+#     for i in range(0, N):
+    
+#         numModes = np.random.randint(maxNumModes)+1
+#         mus = np.random.randn(numModes)
+#         kappa = 0.3*np.pi
+#         kappas = kappa*np.ones((int(numModes),1))  # circular dispersion
+        
+#         Y = np.ones((numParticles))/numParticles
+#         X = np.ones((numParticles))
+        
+#         k = 0
+#         numPtsPerMode = np.int(numParticles/maxNumModes)
+#         for j in range(numModes):
+#             #print('j ',str(j), ' , ', len(mus))            
+#             mu = mus[j]
+#             xcur = np.random.vonmises(mu, kappa, size=numPtsPerMode)
+#             X[k:k+numPtsPerMode] = xcur
+#             k=k+numPtsPerMode
+        
+#         Xs.append(X)
+
+#     return synthData
+
+
+
+
+
+

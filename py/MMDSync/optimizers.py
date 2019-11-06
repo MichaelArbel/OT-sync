@@ -12,10 +12,11 @@ import utils
 import torch
 from torch.optim import Optimizer
 import torch.optim as optim
+from copy import deepcopy
 
 class quaternion_SGD(Optimizer):
 
-	def __init__(self, params, lr=0.1, momentum=0, dampening=0,
+	def __init__(self, params, lr=0.1, weights_factor=0.001 , momentum=0, dampening=0,
 				 weight_decay=0, nesterov=False):
 		if lr < 0.0:
 			raise ValueError("Invalid learning rate: {}".format(lr))
@@ -30,19 +31,21 @@ class quaternion_SGD(Optimizer):
 			raise ValueError("Nesterov momentum requires a momentum and zero dampening")
 		super(quaternion_SGD, self).__init__(params, defaults)
 
+		self.params = None
+		self.weights_factor = weights_factor
+
 	def __setstate__(self, state):
 		super(quaternion_SGD, self).__setstate__(state)
 		for group in self.param_groups:
 			group.setdefault('nesterov', False)
 
-	def step(self, closure=None):
+	def step(self, loss=None, closure=None):
 		"""Performs a single optimization step.
 
 		Arguments:
 			closure (callable, optional): A closure that reevaluates the model
 				and returns the loss.
 		"""
-		loss = None
 		if closure is not None:
 			loss = closure()
 
@@ -71,13 +74,40 @@ class quaternion_SGD(Optimizer):
 						d_p = buf
 				if i==0:
 					#v = - group['lr']* utils.quaternion_proj(param.data,d_p)
-					v = - group['lr']* d_p
+					effective_lr = compute_lr(group['lr'],d_p,loss)
+					v = - effective_lr* d_p
 					param.data = utils.quaternion_exp_map(param.data,v, north_hemisphere=False)
+					param.data[0,:,0] = 1.
+					param.data[0,:,1:] = 0.
+
 				else:
-					v = - group['lr']* utils.sphere_proj(param.data,d_p)
+					effective_lr = compute_lr(group['lr'],d_p,loss)
+					v = - weights_factor*effective_lr* utils.sphere_proj(param.data,d_p)
 					param.data = utils.sphere_exp_map(param.data,v, north_hemisphere=False)
 
 					#w_g = - group['lr']* (d_p - tr.sum(d_p,dim=-1).unsqueeze(-1))
 					#param.data = (param.data + w_g).clamp(0.)
 					#param.data = param.data/tr.sum(param.data, dim=-1).unsqueeze(-1)
 		return loss
+	def keep_weights(self):
+
+		self.params = deepcopy(self.param_groups)
+	def reset_weights(self):
+		for k ,group in enumerate(self.param_groups):
+			for i, param in enumerate(group['params']):
+				param.data = deepcopy(self.params[k]['params'][i].data)
+	def decrease_lr(self):
+		for k ,group in enumerate(self.param_groups):
+			group['lr']*=0.1	
+	def reset_lr(self,lr):
+		for k ,group in enumerate(self.param_groups):
+			group['lr'] =lr		
+
+def compute_lr(lr, v, loss):
+	if loss is None:
+		return lr
+	else:
+		tmp  =  loss/tr.norm(v)**2
+	#return lr
+		return min(lr,tmp)
+
