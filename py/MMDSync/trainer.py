@@ -175,7 +175,7 @@ class Trainer(object):
 			if np.mod(iteration,self.args.noise_decay_freq)==0 and iteration>0:
 				self.particles.update_noise_level()
 			if np.mod(iteration, self.args.freq_eval)==0:
-				with tr.no_grad()
+				with tr.no_grad():
 					out = self.eval(iteration, loss,with_config=with_config)
 				with_config=False
 				if self.args.save==1:
