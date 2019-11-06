@@ -90,6 +90,17 @@ class Trainer(object):
 		self.scheduler = get_scheduler(self.args, self.optimizer)
 		self.eval_loss = self.get_eval_loss()
 		self.old_loss = np.inf
+		if self.args.with_edges_splits:
+			self.sub_indices,self.sub_edges =  self.split_edges()
+	def split_edges(self):
+		
+		num_splits = int(self.edges.shape[0]/self.args.batch_size)
+		if not np.mod(self.edges.shape[0],self.args.batch_size) == 0:
+			num_splits +=1
+		edges_indices = np.array(range(self.edges.shape[0]))
+		sub_edges = np.array_split(self.edges,num_splits)
+		split_indices = np.array_split(edges_indices,num_splits)
+		return split_indices,sub_edges
 
 	def get_loss(self):
 		kernel = get_kernel(self.args,self.dtype, self.device)
@@ -220,19 +231,7 @@ class Trainer(object):
 		#print( ' Min norm  ' + str(min_norm.item()) +  ' Max_norm ' + str(max_norm.item()))
 		#rm_particles = self.RM_map(self.particles)
 		#if self.args.with_weights==1:
-		loss = self.loss(self.true_RM, self.true_RM_weights)
-		#loss = self.loss(self.true_particles, self.true_weights)
-		#else:
-		#	loss = self.loss(self.true_RM)
-
-		#print(self.particles.data )
-		
-
-		#loss = self.loss(self.true_particles)
-
-		loss.backward()
-
-		loss = loss.item()
+		loss = self.mini_batch_iter(with_backward=True)
 		if self.args.with_backtracking:
 			self.backtracking(loss)
 		else:
@@ -264,6 +263,23 @@ class Trainer(object):
 
 		print('Iteration: '+ str(iteration) + ' loss: ' + str(round(loss,3))  + ' lr ' + str(self.optimizer.param_groups[0]['lr']) )
 		return loss
+	def mini_batch_iter(self,with_backward):
+		if self.args.with_edges_splits: 
+			total_loss = 0.
+			for k, edges in zip(self.sub_indices,self.sub_edges):
+				self.loss.rm_map.edges = edges
+				loss = self.loss(self.true_RM[k,:], self.true_RM_weights[k,:])
+				if with_backward: 
+					loss.backward()
+				total_loss+=loss.item()
+		else:
+			total_loss = self.loss(self.true_RM, self.true_RM_weights)
+			if with_backward:
+				total_loss.backward()
+			total_loss = total_loss.item()
+
+
+		return total_loss
 	def backtracking(self,loss):
 		self.optimizer.keep_weights()
 		done = False
@@ -274,7 +290,8 @@ class Trainer(object):
 			self.optimizer.step(loss=loss)
 			#self.optimizer.step(loss=None)
 			with torch.no_grad():
-				new_loss = self.loss(self.true_RM, self.true_RM_weights).item()
+				new_loss = self.mini_batch_iter(with_backward=False)
+				#new_loss = self.loss(self.true_RM, self.true_RM_weights).item()
 			done = new_loss<=loss or count>count_max
 			count +=1
 			self.optimizer.decrease_lr()
@@ -299,6 +316,7 @@ class Trainer(object):
 			w = self.particles.weights()
 			#w = (1./self.particles.data.shape[1])*torch.ones_like(self.particles.data)
 			#w = w[:,:,0]
+		self.RM_map.edges = self.edges
 		rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights() )
 		out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
 		out['weights'] = w.cpu().detach().numpy()
