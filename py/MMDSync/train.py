@@ -20,6 +20,8 @@ parser.add_argument('--log_dir', default = '',type= str,  help='log directory fo
 parser.add_argument('--log_name', default = 'exp',type= str,  help='log directory for summaries and checkpoints')
 parser.add_argument('--log_in_file', action='store_true',  help='log output in file ')
 
+parser.add_argument('--data_path', default = '../data',type= str,  help='log directory for summaries and checkpoints')
+parser.add_argument('--data_name', default = 'notredame',type= str,  help='log directory for summaries and checkpoints')
 
 
 parser.add_argument('--device', default = 0 ,type= int,  help='gpu device')

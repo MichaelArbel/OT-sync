@@ -9,7 +9,6 @@ import torch
 import torch.optim as optim
 import torch.optim as optim
 
-from tensorboardX import SummaryWriter
 
 import utils
 import pprint
@@ -20,6 +19,7 @@ import prior
 import optimizers
 from kernel.gaussian import Gaussian,ExpQuaternionGeodesicDist,ExpPowerQuaternionGeodesicDist
 import pickle
+import data_loader as dl
 
 torch.backends.cudnn.benchmark=True
 torch.manual_seed(0)
@@ -99,9 +99,10 @@ class Trainer(object):
 			self.edges, self.G = get_edges(self.args)
 			self.true_RM, self.true_RM_weights = self.get_true_rm()
 		elif self.args.model=='real_data':
-			self.edges, self.G, self.true_RM, self.true_particles = dl.data_loader(self.args.data_path, self.args.data_name)
-
-
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights = dl.data_loader(self.args.data_path, self.args.data_name, self.dtype,self.device)
+			self.args.N = len(self.true_particles)
+			#self.true_weights = (1./true_args.num_particles)*torch.ones([true_args.N, true_args.num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
+			
 	def split_edges(self):
 		
 		num_splits = int(self.edges.shape[0]/self.args.batch_size)
@@ -160,7 +161,7 @@ class Trainer(object):
 		start_time = time.time()
 		best_valid_loss = np.inf
 		with_config = True
-		self.initialize()
+		#self.initialize()
 		for iteration in range(self.args.total_iters):
 			#scheduler.step()
 			loss = self.train_iter(iteration)

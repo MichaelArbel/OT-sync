@@ -1,5 +1,5 @@
 
-log_dir: '/nfs/data/michaela/projects/OptSync'
+#log_dir: '/nfs/data/michaela/projects/OptSync'
 dtype : '64'
 particles_type : 'quaternion'
 optimizer : 'SGD'
