@@ -80,10 +80,12 @@ class Trainer(object):
 	def build_model(self):
 		torch.manual_seed(self.args.seed)
 		np.random.seed(self.args.seed)
-		self.edges, self.G = get_edges(self.args)
+		self.get_gt_data()
+
+		
 		self.RM_map = get_rm_map(self.args,self.edges)
 		self.prior = get_prior(self.args, self.dtype, self.device)
-		self.true_RM, self.true_RM_weights = self.get_true_rm()
+		
 		self.particles = get_particles(self.args, self.prior, self.edges.shape[0] )
 		self.loss = self.get_loss()
 		self.optimizer = self.get_optimizer(self.args.lr)
@@ -92,6 +94,14 @@ class Trainer(object):
 		self.old_loss = np.inf
 		if self.args.with_edges_splits:
 			self.sub_indices,self.sub_edges =  self.split_edges()
+	def get_gt_data(self):
+		if self.args.model=='synthetic':
+			self.edges, self.G = get_edges(self.args)
+			self.true_RM, self.true_RM_weights = self.get_true_rm()
+		elif self.args.model=='real_data':
+			self.edges, self.G, self.true_RM, self.true_particles = dl.data_loader(self.args.data_path, self.args.data_name)
+
+
 	def split_edges(self):
 		
 		num_splits = int(self.edges.shape[0]/self.args.batch_size)
