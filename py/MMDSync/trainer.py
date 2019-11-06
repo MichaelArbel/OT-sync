@@ -236,46 +236,7 @@ class Trainer(object):
 		print('assigned value')
 	def train_iter(self, iteration):
 		self.particles.zero_grad()
-		#min_norm = torch.min(torch.norm(self.particles.data,dim=-1))
-		#max_norm = torch.max(torch.norm(self.particles.data,dim=-1))
 
-
-		#print( ' Min norm  ' + str(min_norm.item()) +  ' Max_norm ' + str(max_norm.item()))
-		#rm_particles = self.RM_map(self.particles)
-		#if self.args.with_weights==1:
-		loss = self.mini_batch_iter(with_backward=True)
-		if self.args.with_backtracking:
-			self.backtracking(loss)
-		else:
-			if self.args.particles_type=='euclidian':
-				self.optimizer.step()
-			else:
-				self.optimizer.step(loss=loss)
-		if loss> self.old_loss:
-			print('increasing loss')
-		#	self.optimizer.param_groups[0]['lr'] =0.5*self.optimizer.param_groups[0]['lr']
-		#	print('decreased lr')
-		self.old_loss = loss
-		self.optimizer.param_groups[0]['lr'] = self.args.lr/(1 + np.sqrt(iteration/1000.))
-		if iteration==500:
-			self.optimizer.param_groups[0]['lr']*=0.1
-
-		#if self.args.particles_type=='euclidian':
-		#	self.optimizer.step()
-		#else:
-		#	self.optimizer.step(loss=loss)
-			#self.optimizer.step()
-		#print(self.particles.data)
-		
-		#self.scheduler.step(loss_val)
-
-		#if np.mod(iteration,100)==0:
-		if iteration==1264:
-			print('bug here')
-
-		print('Iteration: '+ str(iteration) + ' loss: ' + str(round(loss,3))  + ' lr ' + str(self.optimizer.param_groups[0]['lr']) )
-		return loss
-	def mini_batch_iter(self,with_backward):
 		if self.args.with_edges_splits: 
 			total_loss = 0.
 			for k, edges in zip(self.sub_indices,self.sub_edges):
@@ -289,6 +250,50 @@ class Trainer(object):
 			if with_backward:
 				total_loss.backward()
 			total_loss = total_loss.item()
+		#return total_loss
+		loss = total_loss
+		self.update_gradient(loss,iteration)
+		#loss = self.mini_batch_iter(with_backward=True)
+		if loss> self.old_loss:
+			print('increasing loss')
+		#	self.optimizer.param_groups[0]['lr'] =0.5*self.optimizer.param_groups[0]['lr']
+		#	print('decreased lr')
+		self.old_loss = loss
+		self.optimizer.param_groups[0]['lr'] = self.args.lr/(1 + np.sqrt(iteration/1000.))
+		#if iteration==500:
+		#	self.optimizer.param_groups[0]['lr']*=0.1
+
+		if iteration==1264:
+			print('bug here')
+
+		return loss
+	def update_gradient(self,loss,iteration):
+		if self.args.with_backtracking:
+			self.backtracking(loss)
+		else:
+			if self.args.particles_type=='euclidian':
+				self.optimizer.step()
+			else:
+				self.optimizer.step(loss=loss)
+
+		print('Iteration: '+ str(iteration) + ' loss: ' + str(round(loss,3))  + ' lr ' + str(self.optimizer.param_groups[0]['lr']) )
+
+	def mini_batch_iter(self,with_backward):
+		if self.args.with_edges_splits: 
+			total_loss = 0.
+
+			for k, edges in zip(self.sub_indices,self.sub_edges):
+				self.loss.rm_map.edges = edges
+				loss = self.loss(self.true_RM[k,:], self.true_RM_weights[k,:])
+				if with_backward: 
+					loss.backward()
+				total_loss+=loss.item()
+		else:
+			total_loss =self.loss(self.true_RM, self.true_RM_weights)
+			if with_backward:
+				total_loss.backward()
+			total_loss = total_loss.item()
+		return total_loss
 	def mini_batch_iter_eval_loss(self,with_backward):
 		if self.args.with_edges_splits: 
 			total_loss = 0.
@@ -306,7 +311,6 @@ class Trainer(object):
 			if with_backward:
 				total_loss.backward()
 			total_loss = total_loss.item()		
-
 
 		return total_loss
 	def backtracking(self,loss):
