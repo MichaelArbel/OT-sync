@@ -175,7 +175,8 @@ class Trainer(object):
 			if np.mod(iteration,self.args.noise_decay_freq)==0 and iteration>0:
 				self.particles.update_noise_level()
 			if np.mod(iteration, self.args.freq_eval)==0:
-				out = self.eval(iteration, loss,with_config=with_config)
+				with tr.no_grad()
+					out = self.eval(iteration, loss,with_config=with_config)
 				with_config=False
 				if self.args.save==1:
 					save_pickle(out, os.path.join(self.log_dir, 'data'), name =  'iter_'+ str(iteration))
@@ -284,10 +285,27 @@ class Trainer(object):
 					loss.backward()
 				total_loss+=loss.item()
 		else:
-			total_loss = self.loss(self.true_RM, self.true_RM_weights)
+			total_loss =self.loss(self.true_RM, self.true_RM_weights)
 			if with_backward:
 				total_loss.backward()
 			total_loss = total_loss.item()
+	def mini_batch_iter_eval_loss(self,with_backward):
+		if self.args.with_edges_splits: 
+			total_loss = 0.
+			for k, edges in zip(self.sub_indices,self.sub_edges):
+				self.loss.rm_map.edges = edges
+				rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights() )
+				loss = self.eval_loss(rm, self.true_RM[k,:],rm_weights,self.true_RM_weights[k,:]).item()
+				if with_backward: 
+					loss.backward()
+				total_loss+=loss.item()
+		else:
+			rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights() )
+			total_loss = self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
+			
+			if with_backward:
+				total_loss.backward()
+			total_loss = total_loss.item()		
 
 
 		return total_loss
@@ -328,13 +346,13 @@ class Trainer(object):
 			#w = (1./self.particles.data.shape[1])*torch.ones_like(self.particles.data)
 			#w = w[:,:,0]
 		self.RM_map.edges = self.edges
-		rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights() )
-		out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
+		#rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights() )
+		#out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
 		out['weights'] = w.cpu().detach().numpy()
 
 		if self.args.model =='synthetic':
 			#U = utils.forward_quaternion_X_times_Y_inv_prod(self.true_particles[0,:,:].unsqueeze(0),self.particles.data[0,:,:].unsqueeze(0))
-			out['eval_dist'] =   self.eval_loss(self.particles.data,self.true_particles, w, self.true_weights).item()
+			out['eval_dist'] =   self.mini_batch_iter_eval_loss()
 			#if self.args.with_weights==1:
 			
 			
