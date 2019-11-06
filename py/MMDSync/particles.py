@@ -255,6 +255,17 @@ class QuaternionRelativeMeasureMapWeightsProductPrior(QuaternionRelativeMeasureM
 		super(QuaternionRelativeMeasureMapWeightsProductPrior,self).__init__(edges,grad_type,noise_sampler=noise_sampler,noise_level=noise_level,bernoulli_noise=bernoulli_noise, unfaithfulness=unfaithfulness)
 		self.num_particles = num_particles
 
+
+	def forward(self,particles, weights):
+		#ratios  = utils.quaternion_prod(xi,xj)
+		#normalize = tr.norm(ratios,dim=-1).clone().detach()
+		#ratios  = ratios/normalize.unsqueeze(-1)
+		ratios,RM_weights = self.compute_ratios(particles,weights)
+		if self.noise_level>0.:
+			ratios = self.add_noise(ratios)
+
+		return ratios,RM_weights
+
 	def compute_ratios(self,particles,weights):
 
 		ratios = []
@@ -299,7 +310,15 @@ class QuaternionRelativeMeasureMapWeightsProductPrior(QuaternionRelativeMeasureM
 		w = tr.einsum('nk,nlk->nl',weights,mask_i)
 		return x,w,mask_i_0
 
-
+	def add_noise(self):
+		noisy_ratios = add_noise_quaternion(self.noise_sampler,ratios,self.noise_level)
+		if self.bernoulli_noise>0.:
+			N,num_particles, _ = ratios.shape
+			mask = tr.bernoulli(self.bernoulli_noise*tr.ones([N,num_particles], dtype=ratios.dtype, device=ratios.device))
+			ratios[mask,:] = noisy_ratios[mask,:]
+			return ratios
+		else:
+			return noisy_ratios
 
 class QuaternionRelativeMeasureMapWeightsCouplings(QuaternionRelativeMeasureMapWeights):
 	def __init__(self,edges,grad_type,noise_sampler=None,noise_level=-1.,bernoulli_noise=-1., unfaithfulness=False):
