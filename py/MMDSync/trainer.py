@@ -80,11 +80,11 @@ class Trainer(object):
 	def build_model(self):
 		torch.manual_seed(self.args.seed)
 		np.random.seed(self.args.seed)
-		self.edges = get_edges(self.args)
+		self.edges, self.G = get_edges(self.args)
 		self.RM_map = get_rm_map(self.args,self.edges)
 		self.prior = get_prior(self.args, self.dtype, self.device)
 		self.true_RM, self.true_RM_weights = self.get_true_rm()
-		self.particles = get_particles(self.args, self.prior)
+		self.particles = get_particles(self.args, self.prior, self.edges.shape[0] )
 		self.loss = self.get_loss()
 		self.optimizer = self.get_optimizer(self.args.lr)
 		self.scheduler = get_scheduler(self.args, self.optimizer)
@@ -107,6 +107,8 @@ class Trainer(object):
 		elif self.args.particles_type=='quaternion':
 			if self.args.optimizer=='SGD':
 				return optimizers.quaternion_SGD(self.particles.parameters(), lr=lr, weights_factor= self.args.weights_factor)
+			elif  self.args.optimizer=='SGD_unconstrained':
+				return optimizers.quaternion_SGD_unconstrained(self.particles.parameters(), lr=lr, weights_factor= self.args.weights_factor,weight_decay=self.args.weight_decay)
 
 	def get_true_rm(self):
 		if self.args.model =='synthetic':
@@ -137,6 +139,7 @@ class Trainer(object):
 		start_time = time.time()
 		best_valid_loss = np.inf
 		with_config = True
+		self.initialize()
 		for iteration in range(self.args.total_iters):
 			#scheduler.step()
 			loss = self.train_iter(iteration)
@@ -158,6 +161,56 @@ class Trainer(object):
 
 		return loss
 
+	def initialize(self):
+		print('initiallizing particles')
+		num_iters = 10
+		K = self.edges.shape[0]
+		M = self.true_RM.shape[1]
+		N = self.particles.data.shape[0]
+		d = self.particles.data.shape[2]
+		init_particles = torch.zeros([N,M,d], dtype=self.true_RM.dtype, device = self.true_RM.device)
+		
+		I = list(self.G.edges())
+		N = len(self.G.nodes())
+
+		init_particles[0,:,0] = 1.
+		j = 0
+		done_set = set([])
+		cur_set = set([0])
+		done  = False
+		while not done:
+			cur_node = cur_set.pop()			
+			successors = [n for n in self.G.successors(cur_node)]
+			predecessors = [n for n in self.G.predecessors(cur_node)]
+			for suc in successors:
+				if suc not in done_set:
+					k = I.index((cur_node,suc))
+					cp = 1.*self.true_RM[k,:,:].unsqueeze(0)
+					cp[:,:,1:]*=-1
+					init_particles[suc,:,:] = utils.quaternion_prod(cp, init_particles[cur_node,:,:].unsqueeze(0))
+			for pre in predecessors:
+				if pre not in done_set:
+					k = I.index((pre,cur_node))
+					init_particles[pre,:,:] = utils.quaternion_prod(self.true_RM[k,:,:].unsqueeze(0),init_particles[cur_node,:,:].unsqueeze(0))
+			
+			mask = init_particles[:,:,0]<0
+			init_particles[mask]*=-1
+
+			cur_set.update(successors)
+			cur_set.update(predecessors)
+			done_set.update([cur_node])
+			done = (len(done_set)==N)
+		N,num_particles, _ = self.particles.data.shape
+		mask_int =torch.multinomial(self.true_RM_weights[0,:],num_particles, replacement=True)
+		self.particles.data.data = init_particles[:,mask_int,:]
+		#self.particles.data.data = self.true_particles[:,mask_int,:]
+
+		#self.particles.data.data = 1.* self.true_particles
+		
+		#self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.001)
+		#mask = self.particles.data<0
+		#self.particles.data.data[mask]*=-1.
+		print('assigned value')
 	def train_iter(self, iteration):
 		self.particles.zero_grad()
 		#min_norm = torch.min(torch.norm(self.particles.data,dim=-1))
@@ -192,8 +245,9 @@ class Trainer(object):
 		#	self.optimizer.param_groups[0]['lr'] =0.5*self.optimizer.param_groups[0]['lr']
 		#	print('decreased lr')
 		self.old_loss = loss
-		
-
+		self.optimizer.param_groups[0]['lr'] = self.args.lr/(1 + np.sqrt(iteration/1000.))
+		if iteration==500:
+			self.optimizer.param_groups[0]['lr']*=0.1
 
 		#if self.args.particles_type=='euclidian':
 		#	self.optimizer.step()
@@ -205,6 +259,9 @@ class Trainer(object):
 		#self.scheduler.step(loss_val)
 
 		#if np.mod(iteration,100)==0:
+		if iteration==1264:
+			print('bug here')
+
 		print('Iteration: '+ str(iteration) + ' loss: ' + str(round(loss,3))  + ' lr ' + str(self.optimizer.param_groups[0]['lr']) )
 		return loss
 	def backtracking(self,loss):
@@ -235,14 +292,23 @@ class Trainer(object):
 		out['particles'] = self.particles.data.cpu().detach().numpy()
 		out['time'] = time.time()
 		out['iteration'] = iteration
-		out['weights'] = self.particles.weights().cpu().detach().numpy()
+		if self.args.with_couplings:
+			w, c = self.particles.weights()
+			out['couplings'] = c.cpu().detach().numpy()
+		else:
+			w = self.particles.weights()
+			#w = (1./self.particles.data.shape[1])*torch.ones_like(self.particles.data)
+			#w = w[:,:,0]
+		rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights() )
+		out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
+		out['weights'] = w.cpu().detach().numpy()
 
 		if self.args.model =='synthetic':
 			#U = utils.forward_quaternion_X_times_Y_inv_prod(self.true_particles[0,:,:].unsqueeze(0),self.particles.data[0,:,:].unsqueeze(0))
-			out['eval_dist'] =   self.eval_loss(self.particles.data,self.true_particles, self.particles.weights(), self.true_weights).item()
+			out['eval_dist'] =   self.eval_loss(self.particles.data,self.true_particles, w, self.true_weights).item()
 			#if self.args.with_weights==1:
-			rm, rm_weights =self.RM_map(self.particles.data,  self.particles.weights() )
-			out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
+			
+			
 			#else:
 			#	rm =self.RM_map(self.particles.data)
 			#	out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,None,None).item()
@@ -261,18 +327,19 @@ def get_kernel(args,dtype, device):
 		return Gaussian(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
 	elif args.kernel_cost == 'quaternion':
 		return ExpQuaternionGeodesicDist(1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
-	elif args.kernel_cost == 'power_quaternion':
+	elif args.kernel_cost == 'power_quaternion' or args.kernel_cost == 'sum_power_quaternion':
 		return ExpPowerQuaternionGeodesicDist(args.power,1 , args.kernel_log_bw, particles_type=args.particles_type, dtype=dtype, device=device)
 	elif args.kernel_cost == 'sinkhorn_gaussian':
 		return None
 	else:
 		raise NotImplementedError()
 
-def get_particles(args, prior):
+def get_particles(args, prior,num_edges):
+
 	if args.particles_type == 'euclidian':
-		return particles.Particles(prior,args.N, args.num_particles ,args.with_weights, args.product_particles, args.noise_level, args.noise_decay)
+		return particles.Particles(prior,args.N, args.num_particles, num_edges,args.with_weights, args.with_couplings, args.product_particles, args.noise_level, args.noise_decay)
 	elif args.particles_type== 'quaternion':
-		return particles.QuaternionParticles(prior, args.N, args.num_particles , args.with_weights, args.product_particles,args.noise_level, args.noise_decay)
+		return particles.QuaternionParticles(prior, args.N, args.num_particles ,num_edges, args.with_weights, args.with_couplings, args.product_particles,args.noise_level, args.noise_decay)
 	else:
 		raise NotImplementedError()
 
@@ -288,7 +355,9 @@ def get_rm_map(args,edges):
 		#	return particles.RelativeMeasureMap(edges,grad_type)
 	elif args.particles_type=='quaternion':
 		#if args.with_weights==1:
-		if args.product_particles==1:
+		if args.product_particles==1 and args.with_couplings:
+			return particles.QuaternionRelativeMeasureMapWeightsCouplings(edges,grad_type)
+		elif args.product_particles==1:
 			return particles.QuaternionRelativeMeasureMapWeightsProduct(edges,grad_type)
 		else:
 			return particles.QuaternionRelativeMeasureMapWeights(edges,grad_type)
@@ -314,7 +383,7 @@ def get_true_rm_map(args,edges, dtype, device):
 		return particles.RelativeMeasureMapWeights(edges,grad_type)
 	elif args.particles_type=='quaternion':
 		if args.product_particles==1:
-			return particles.QuaternionRelativeMeasureMapWeightsProduct(edges,grad_type, noise_sampler,args.true_rm_noise_level,args.true_bernoulli_noise,args.unfaithfulness)
+			return particles.QuaternionRelativeMeasureMapWeightsProductPrior(edges,args.num_rm_particles, grad_type, noise_sampler,args.true_rm_noise_level,args.true_bernoulli_noise,args.unfaithfulness)
 		else:
 			return particles.QuaternionRelativeMeasureMapWeights(edges,grad_type, noise_sampler,args.true_rm_noise_level,args.true_bernoulli_noise,args.unfaithfulness)
 	else:
@@ -387,6 +456,7 @@ def make_true_dict(args):
 	true_args['true_rm_noise_level'] = args.true_rm_noise_level
 	true_args['true_bernoulli_noise'] = args.true_bernoulli_noise
 	true_args['unfaithfulness'] = args.unfaithfulness
+	true_args['num_rm_particles'] = args.num_rm_particles
 	true_args = Struct(**true_args)
 	return true_args
 

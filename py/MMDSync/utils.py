@@ -77,15 +77,25 @@ def generate_graph(N, completeness):
 
 	G = np.zeros((N,N))
 	G[rows, cols] = vals
-	G = nx.from_numpy_matrix(G)
-	if nx.is_connected(G):
-		return I
+	C = nx.from_numpy_matrix(G)
+	G = nx.from_numpy_matrix(G, create_using=nx.DiGraph())
+	I = np.array(list(G.edges()))
+	
+	if nx.is_connected(C):
+		return I, G
 	else:
 		print('The graph is not connected!!')
 
 
 def power_quaternion_geodesic_distance(p,X,Y):
 	return quaternion_geodesic_distance(X,Y)**p
+
+
+
+def sum_power_quaternion_geodesic_distance(p,X,Y):
+	C = power_quaternion_geodesic_distance(p,X,Y)
+	return tr.sum(C, dim=0).unsqueeze(0)
+
 
 
 def min_squared_eucliean_distance(X,Y):
