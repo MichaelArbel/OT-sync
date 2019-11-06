@@ -75,3 +75,11 @@ python -m ipdb train.py --device=-2 --log_name=toy_exp --config_method=configs/s
 
 
 
+
+ python -m ipdb train.py --device=2 --log_name=toy_exp --config_method=configs/sinkhorn.yaml  --model='real_data' --data_path='../data/' --data_name='notredame' --lr=.1 --with_edges_splits --batch_size=100
+
+
+
+
+
+

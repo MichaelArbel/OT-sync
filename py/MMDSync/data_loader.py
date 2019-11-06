@@ -35,7 +35,7 @@ def data_loader( data_path,name, dtype,device):
 	G = nx.from_numpy_matrix(G, create_using=nx.DiGraph())
 	#I = np.array(list(G.edges()))
 
-	Qrel = tr.tensor(Qrel, dtype=dtype).unsqueeze(1)    # do not assigne to gpu for now (this matrix can be huge)
+	Qrel = tr.tensor(Qrel, dtype=dtype,device=device).unsqueeze(1)    # do not assigne to gpu for now (this matrix can be huge)
 	Qabs =  tr.tensor(Qabs, dtype=dtype, device=device).unsqueeze(1)
 	# Additional formatting  : N x P x d 
 	N,P,_ = Qabs.shape
