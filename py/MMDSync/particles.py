@@ -156,11 +156,11 @@ class QuaternionRelativeMeasureMapWeights(RelativeMeasureMap):
 		self.unfaithfulness = unfaithfulness
 		self.bernoulli_noise =  bernoulli_noise
 
-	def forward(self,particles, weights):
+	def forward(self,particles, weights,edges):
 		#ratios  = utils.quaternion_prod(xi,xj)
 		#normalize = tr.norm(ratios,dim=-1).clone().detach()
 		#ratios  = ratios/normalize.unsqueeze(-1)
-		ratios,RM_weights = self.compute_ratios(particles,weights)
+		ratios,RM_weights = self.compute_ratios(particles,weights,edges)
 		if self.noise_level>0.:
 			ratios = self.add_noise(ratios)
 		if self.unfaithfulness:
@@ -168,11 +168,11 @@ class QuaternionRelativeMeasureMapWeights(RelativeMeasureMap):
 
 		return ratios,RM_weights
 
-	def compute_ratios(self,particles, weights):
+	def compute_ratios(self,particles, weights,edges):
 		ratios = []
 		RM_weights = []
-		i = self.edges[:,0]
-		j = self.edges[:,1]
+		i = edges[:,0]
+		j = edges[:,1]
 		xi = particles[i,:,:]
 		xj = particles[j,:,:]
 		
@@ -218,12 +218,12 @@ class QuaternionRelativeMeasureMapWeightsProduct(QuaternionRelativeMeasureMapWei
 		super(QuaternionRelativeMeasureMapWeightsProduct,self).__init__(edges,grad_type,noise_sampler=noise_sampler,noise_level=noise_level,bernoulli_noise=bernoulli_noise, unfaithfulness=unfaithfulness)
 
 
-	def compute_ratios(self,particles,weights):
+	def compute_ratios(self,particles,weights,edges):
 
 		ratios = []
 		RM_weights = []
-		i = self.edges[:,0]
-		j = self.edges[:,1]
+		i = edges[:,0]
+		j = edges[:,1]
 		xi = particles[i,:,:]
 		xj = particles[j,:,:]
 		N,K,_ = xi.shape
@@ -326,13 +326,13 @@ class QuaternionRelativeMeasureMapWeightsCouplings(QuaternionRelativeMeasureMapW
 		self.subsample = False
 		self.a_y = 0.
 		self.b_x = 0.
-	def compute_ratios(self,particles,couplings):
+	def compute_ratios(self,particles,couplings,edges):
 		weights,coupling_strenght = couplings
 
 		ratios = []
 		RM_weights = []
-		i = self.edges[:,0]
-		j = self.edges[:,1]
+		i = edges[:,0]
+		j = edges[:,1]
 		xi = particles[i,:,:]
 		xj = particles[j,:,:]
 		N,K,_ = xi.shape

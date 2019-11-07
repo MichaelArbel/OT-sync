@@ -8,7 +8,7 @@ import sys
 import torch
 import torch.optim as optim
 import torch.optim as optim
-
+import torch.nn as nn
 
 import utils
 import pprint
@@ -87,10 +87,22 @@ class Trainer(object):
 		self.prior = get_prior(self.args, self.dtype, self.device)
 		
 		self.particles = get_particles(self.args, self.prior, self.edges.shape[0] )
-		self.loss = self.get_loss()
+		
+		self.loss_class = self.get_loss()
+		self.eval_loss = self.get_eval_loss()
+		self.eval_loss_abs = self.get_eval_loss_abs()
+		if torch.cuda.device_count() > 1:
+			self.loss = nn.DataParallel(self.loss_class)
+			self.eval_loss = nn.DataParallel(self.eval_loss )
+		else:
+			self.loss = self.loss_class
+			print("Let's use", torch.cuda.device_count(), "GPUs!")
+		self.loss.to(self.device)
+		self.eval_loss.to(self.device)
+
 		self.optimizer = self.get_optimizer(self.args.lr)
 		self.scheduler = get_scheduler(self.args, self.optimizer)
-		self.eval_loss = self.get_eval_loss()
+
 		self.old_loss = np.inf
 		if self.args.with_edges_splits:
 			self.sub_indices,self.sub_edges =  self.split_edges()
@@ -153,8 +165,11 @@ class Trainer(object):
 			raise NotImplementedError()
 	def get_eval_loss(self):
 		if self.args.eval_loss=='sinkhorn':
-			return sinkhorn.SinkhornEval(self.args.SH_eps, self.args.SH_max_iter,'quaternion')
+			return sinkhorn.SinkhornEval(self.particles, self.RM_map, self.args.SH_eps, self.args.SH_max_iter,'quaternion')
 
+	def get_eval_loss_abs(self):
+		if self.args.eval_loss=='sinkhorn':
+			return sinkhorn.SinkhornEvalAbs(self.particles, self.args.SH_eps, self.args.SH_max_iter,'quaternion')
 
 	def train(self):
 		print("Starting Training Loop...")
@@ -175,7 +190,7 @@ class Trainer(object):
 			if np.mod(iteration,self.args.noise_decay_freq)==0 and iteration>0:
 				self.particles.update_noise_level()
 			if np.mod(iteration, self.args.freq_eval)==0:
-				with tr.no_grad():
+				with torch.no_grad():
 					out = self.eval(iteration, loss,with_config=with_config)
 				with_config=False
 				if self.args.save==1:
@@ -186,6 +201,7 @@ class Trainer(object):
 
 	def initialize(self):
 		print('initiallizing particles')
+		start = time.time()
 		num_iters = 10
 		K = self.edges.shape[0]
 		M = self.true_RM.shape[1]
@@ -233,25 +249,13 @@ class Trainer(object):
 		#self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.001)
 		#mask = self.particles.data<0
 		#self.particles.data.data[mask]*=-1.
-		print('assigned value')
+		end = time.time()
+		print('assigned value in '+str(end-start) + 's')
 	def train_iter(self, iteration):
+		start = time.time()
 		self.particles.zero_grad()
 
-		if self.args.with_edges_splits: 
-			total_loss = 0.
-			for k, edges in zip(self.sub_indices,self.sub_edges):
-				self.loss.rm_map.edges = edges
-				loss = self.loss(self.true_RM[k,:], self.true_RM_weights[k,:])
-				if with_backward: 
-					loss.backward()
-				total_loss+=loss.item()
-		else:
-			total_loss =self.loss(self.true_RM, self.true_RM_weights)
-			if with_backward:
-				total_loss.backward()
-			total_loss = total_loss.item()
-		#return total_loss
-		loss = total_loss
+		loss = self.mini_batch_iter(with_backward = True)
 		self.update_gradient(loss,iteration)
 		#loss = self.mini_batch_iter(with_backward=True)
 		if loss> self.old_loss:
@@ -265,6 +269,10 @@ class Trainer(object):
 
 		if iteration==1264:
 			print('bug here')
+		end = time.time()
+
+		print('Iteration: '+ str(iteration) + ' loss: ' + str(round(loss,3))  + ' lr ' + str(self.optimizer.param_groups[0]['lr']) + ' in: ' + str(end-start) +'s' )
+
 
 		return loss
 	def update_gradient(self,loss,iteration):
@@ -276,43 +284,46 @@ class Trainer(object):
 			else:
 				self.optimizer.step(loss=loss)
 
-		print('Iteration: '+ str(iteration) + ' loss: ' + str(round(loss,3))  + ' lr ' + str(self.optimizer.param_groups[0]['lr']) )
 
 	def mini_batch_iter(self,with_backward):
 		if self.args.with_edges_splits: 
 			total_loss = 0.
-
+			count = 0
 			for k, edges in zip(self.sub_indices,self.sub_edges):
-				self.loss.rm_map.edges = edges
-				loss = self.loss(self.true_RM[k,:], self.true_RM_weights[k,:])
-				if with_backward: 
+				#self.loss_class.rm_map.edges = edges
+				edges = torch.from_numpy(edges)
+				loss = self.loss(self.true_RM[k,:], self.true_RM_weights[k,:],edges)
+				loss = torch.sum(loss)
+				if with_backward:
 					loss.backward()
+					#self.update_gradient(loss.item(),count)
 				total_loss+=loss.item()
+				count += 1 
 		else:
-			total_loss =self.loss(self.true_RM, self.true_RM_weights)
+			edges = torch.from_numpy(self.edges)
+			total_loss =self.loss(self.true_RM, self.true_RM_weights,edges)
 			if with_backward:
 				total_loss.backward()
+				#self.update_gradient(total_loss.item(),0)
 			total_loss = total_loss.item()
 		return total_loss
-	def mini_batch_iter_eval_loss(self,with_backward):
+	def mini_batch_iter_eval_loss(self):
 		if self.args.with_edges_splits: 
 			total_loss = 0.
 			for k, edges in zip(self.sub_indices,self.sub_edges):
-				self.loss.rm_map.edges = edges
-				rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights() )
-				loss = self.eval_loss(rm, self.true_RM[k,:],rm_weights,self.true_RM_weights[k,:]).item()
-				if with_backward: 
-					loss.backward()
+				#self.loss_class.rm_map.edges = edges
+				edges = torch.from_numpy(edges)
+				#rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights(),edges )
+				loss = self.eval_loss(self.true_RM[k,:],self.true_RM_weights[k,:],edges)
+				loss = torch.sum(loss)
 				total_loss+=loss.item()
 		else:
-			rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights() )
-			total_loss = self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
-			
-			if with_backward:
-				total_loss.backward()
+			edges = torch.from_numpy(self.edges)
+			#rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights(),edges )
+			total_loss = self.eval_loss(self.true_RM,self.true_RM_weights)
 			total_loss = total_loss.item()		
 
-		return total_loss
+		return total_loss/len(self.edges)
 	def backtracking(self,loss):
 		self.optimizer.keep_weights()
 		done = False
@@ -347,27 +358,16 @@ class Trainer(object):
 			out['couplings'] = c.cpu().detach().numpy()
 		else:
 			w = self.particles.weights()
-			#w = (1./self.particles.data.shape[1])*torch.ones_like(self.particles.data)
-			#w = w[:,:,0]
-		self.RM_map.edges = self.edges
-		#rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights() )
-		#out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,rm_weights,self.true_RM_weights).item()
+		out['eval_RM_dist'] =   self.mini_batch_iter_eval_loss()
 		out['weights'] = w.cpu().detach().numpy()
 
-		if self.args.model =='synthetic':
-			#U = utils.forward_quaternion_X_times_Y_inv_prod(self.true_particles[0,:,:].unsqueeze(0),self.particles.data[0,:,:].unsqueeze(0))
-			out['eval_dist'] =   self.mini_batch_iter_eval_loss()
-			#if self.args.with_weights==1:
+		#if self.args.model =='synthetic':
+		out['eval_dist'] =   self.eval_loss_abs(self.true_particles, self.true_weights).item()
+		
+	
 			
-			
-			#else:
-			#	rm =self.RM_map(self.particles.data)
-			#	out['eval_RM_dist'] =   self.eval_loss(rm, self.true_RM,None,None).item()
-
-			
-			
-			print('Sinkhorn distance 	absolute poses '+ str(out['eval_dist']))
-			print('Sinkhorn distance 	relative poses '+ str(out['eval_RM_dist']))
+		print('Sinkhorn distance 	absolute poses '+ str(out['eval_dist']))
+		print('Sinkhorn distance 	relative poses '+ str(out['eval_RM_dist']))
 
 		return out
 
