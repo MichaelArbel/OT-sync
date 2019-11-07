@@ -1,0 +1,36 @@
+log_dir: '/nfs/data/michaela/projects/OptSync'
+dtype : '32'
+particles_type : 'quaternion'
+#### method
+optimizer : 'SGD_unconstrained'     # this allows unconstrained optim over the weight add a penalty 
+weights_decay : 0.01                # Penalty on the weights:  equivalent adding  \lambda || W ||^2 to the cost function
+weights_factor : 1                  # scaling the step-size for the weights: used step-size  is lr*weights_factor    
+#optimizer : 'SGD'          # this constrains the weights to sum to 1
+
+prior : 'gaussian'
+loss : 'mmd'
+# with noise
+# kernel_cost : 'power_quaternion'
+# with_weights : 1
+# product_particles : 1
+# num_particles : 10
+# kernel_log_bw : 0.
+# noise_decay_freq : 500
+# noise_decay : 0.5
+# noise_level : 0.001
+# with_noise : True
+# power : 2.
+
+
+
+# No noise
+kernel_cost : 'power_quaternion'  # uses exponential - of the chosen cost function
+power : 2.      # power of the distance
+kernel_log_bw : 0. # in log-scale 
+
+with_weights : 1             # optimizing over the weights
+product_particles : 1        # computes all pairwise relative poses between particles 
+num_particles : 10           # number of particles
+with_noise : False
+
+

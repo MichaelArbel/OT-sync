@@ -13,83 +13,196 @@ import utils
 # Adapted from https://github.com/gpeyre/SinkhornAutoDiff
 
 from geomloss import SamplesLoss
+import sinkhorn_divergence as sd
+
 from functools import partial
-
-
+import torch as tr
+from torch import autograd
 
 def get_loss(kernel,eps):
-    if kernel.kernel_type=='quaternion':
-        return SamplesLoss("sinkhorn", blur=eps, diameter=3.15, cost = utils.quaternion_geodesic_distance, backend= 'tensorized')
-    elif kernel.kernel_type=='squared_euclidean':
-        return SamplesLoss("sinkhorn", p=2, blur=eps, diameter=4., backend= 'tensorized')
-    elif kernel.kernel_type=='power_quaternion':
-        dist = partial(utils.power_quaternion_geodesic_distance,kernel.power)
-
-        return SamplesLoss("sinkhorn", blur=eps, diameter=10.,cost = dist, backend= 'tensorized')
-    #elif kernel.kernel_type=='sinkhorn_gaussian':
-    #    return SamplesLoss("gaussian", blur=1., diameter=4., backend= 'tensorized')
-    #elif kernel.kernel_type=='min_squared_euclidean':
-    #   return SamplesLoss("sinkhorn", blur=eps, diameter=10.,cost = utils.min_squared_eucliean_distance, backend= 'tensorized')
+	if kernel.kernel_type=='quaternion':
+		return SamplesLoss("sinkhorn", blur=eps, diameter=3.15, cost = utils.quaternion_geodesic_distance, backend= 'tensorized')
+	elif kernel.kernel_type=='squared_euclidean':
+		return SamplesLoss("sinkhorn", p=2, blur=eps, diameter=4., backend= 'tensorized')
+	elif kernel.kernel_type=='power_quaternion':
+		dist = partial(utils.power_quaternion_geodesic_distance,kernel.power)
+		#return sinkhorn_wasserstein_fisher_rao,dist
+		return SamplesLoss("sinkhorn", blur=eps, diameter=10.,cost = dist, backend= 'tensorized')
+	elif kernel.kernel_type=='sum_power_quaternion':
+		dist = partial(utils.sum_power_quaternion_geodesic_distance,kernel.power)
+		return SamplesLoss("sinkhorn", blur=eps, diameter=10.,cost = dist, backend= 'tensorized')
+	#elif kernel.kernel_type=='sinkhorn_gaussian':
+	#    return SamplesLoss("gaussian", blur=1., diameter=4., backend= 'tensorized')
+	#elif kernel.kernel_type=='min_squared_euclidean':
+	#   return SamplesLoss("sinkhorn", blur=eps, diameter=10.,cost = utils.min_squared_eucliean_distance, backend= 'tensorized')
 #loss = SamplesLoss("sinkhorn", blur=.05, diameter=3.15, cost = quaternion_geodesic_distance_geomloss, backend= 'tensorized')
 
 
 class Sinkhorn(nn.Module):
-    r"""
-    Given two empirical measures each with :math:`P_1` locations
-    :math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
-    outputs an approximation of the regularized OT cost for point clouds.
-    Args:
-        eps (float): regularization coefficient
-        max_iter (int): maximum number of Sinkhorn iterations
-        reduction (string, optional): Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
-            'mean': the sum of the output will be divided by the number of
-            elements in the output, 'sum': the output will be summed. Default: 'none'
-    Shape:
-        - Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
-        - Output: :math:`(N)` or :math:`()`, depending on `reduction`
-    """
-    def __init__(self, kernel, particles,rm_map, eps=0.05):
-        super(Sinkhorn, self).__init__()
-        self.eps = eps
-        self.kernel = kernel
-        self.particles = particles
-        self.rm_map = rm_map
-        self.loss = get_loss(kernel,eps)
-    def forward(self, true_data):
-        # The Sinkhorn algorithm takes as input three variables :
-        y = self.rm_map(self.particles.data)
-        return  torch.sum(self.loss(true_data,y))
+	r"""
+	Given two empirical measures each with :math:`P_1` locations
+	:math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
+	outputs an approximation of the regularized OT cost for point clouds.
+	Args:
+		eps (float): regularization coefficient
+		max_iter (int): maximum number of Sinkhorn iterations
+		reduction (string, optional): Specifies the reduction to apply to the output:
+			'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+			'mean': the sum of the output will be divided by the number of
+			elements in the output, 'sum': the output will be summed. Default: 'none'
+	Shape:
+		- Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
+		- Output: :math:`(N)` or :math:`()`, depending on `reduction`
+	"""
+	def __init__(self, kernel, particles,rm_map, eps=0.05):
+		super(Sinkhorn, self).__init__()
+		self.eps = eps
+		self.kernel = kernel
+		self.particles = particles
+		self.rm_map = rm_map
+		self.loss = get_loss(kernel,eps)
+	def forward(self, true_data):
+		# The Sinkhorn algorithm takes as input three variables :
+		y = self.rm_map(self.particles.data)
+		return  torch.sum(self.loss(true_data,y))
 
 
 class Sinkhorn_weighted(nn.Module):
-    r"""
-    Given two empirical measures each with :math:`P_1` locations
-    :math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
-    outputs an approximation of the regularized OT cost for point clouds.
-    Args:
-        eps (float): regularization coefficient
-        max_iter (int): maximum number of Sinkhorn iterations
-        reduction (string, optional): Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
-            'mean': the sum of the output will be divided by the number of
-            elements in the output, 'sum': the output will be summed. Default: 'none'
-    Shape:
-        - Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
-        - Output: :math:`(N)` or :math:`()`, depending on `reduction`
-    """
-    def __init__(self, kernel, particles,rm_map, eps=0.05):
-        super(Sinkhorn_weighted, self).__init__()
-        self.eps = eps
-        self.kernel = kernel
-        self.particles = particles
-        self.rm_map = rm_map
-        self.loss = get_loss(kernel,eps)
-    def forward(self, true_data,true_weights):
-        # The Sinkhorn algorithm takes as input three variables :
-        y, weights = self.rm_map(self.particles.data,self.particles.weights())
-        return  torch.sum(self.loss(true_weights,true_data,weights,y))
+	r"""
+	Given two empirical measures each with :math:`P_1` locations
+	:math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
+	outputs an approximation of the regularized OT cost for point clouds.
+	Args:
+		eps (float): regularization coefficient
+		max_iter (int): maximum number of Sinkhorn iterations
+		reduction (string, optional): Specifies the reduction to apply to the output:
+			'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+			'mean': the sum of the output will be divided by the number of
+			elements in the output, 'sum': the output will be summed. Default: 'none'
+	Shape:
+		- Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
+		- Output: :math:`(N)` or :math:`()`, depending on `reduction`
+	"""
+	def __init__(self, kernel, particles,rm_map, eps=0.05):
+		super(Sinkhorn_weighted, self).__init__()
+		self.eps = eps
+		self.kernel = kernel
+		self.particles = particles
+		self.rm_map = rm_map
+		self.loss,self.cost = get_loss(kernel,eps)
+		self.diameter = 10.
+		self.scaling = 0.5
+		self.a_x = 0.
+		self.b_y = 0.
+		self.a_y = 0.
+		self.b_x = 0.
+	def forward(self, true_data,true_weights):
+		# The Sinkhorn algorithm takes as input three variables :
+		x, weights_x = self.rm_map(self.particles.data,self.particles.weights())
+		y = true_data
+		weights_y = true_weights
+		cost = self.cost
 
+		diameter = 10.
+		scaling = 0.5
+		blur = 0.001
+		p = 1.1
+		#with  tr.enable_grad():
+
+		#out = torch.sum(self.loss(true_weights,true_data,weights,y))
+		diameter, ε, ε_s, ρ = sd.scaling_parameters( x, y, p, blur, None, diameter, scaling )
+		C_xx, C_yy = ( cost( x, x.detach()), cost( y, y.detach()) )   # (B,N,N), (B,M,M)
+		C_xy, C_yx = ( cost( x, y.detach()), cost( y, x.detach()) )  # (B,N,M), (B,M,N)
+
+		#a_x, b_y, a_y, b_x = sd.sinkhorn_loop( softmin_tensorized, log_w_i, log_w_j, None, None, coupling_strenght, perm_coupling , ε_s, None, debias=False )
+		a_x, b_y, a_y, b_x = sd.sinkhorn_loop( softmin_tensorized, 
+									sd.log_weights(weights_x), sd.log_weights(weights_y), 
+									C_xx, C_yy, C_xy, C_yx, ε_s, ρ, debias=True, a_x_0 = self.a_x,a_y_0=self.a_y, b_x_0=self.b_x, b_y_0=self.b_y)
+		#self.update_dual(a_x,b_y,a_y,b_x)
+		out = sd.sinkhorn_cost(ε, ρ, weights_x, weights_y, a_x, b_y, a_y, b_x, batch=True, debias=True, potentials=False)
+		out = tr.sum(out)
+		#out_x = tr.sum(tr.einsum('nl,nl->n',weights_x,(b_x-a_x)))
+		out_x = tr.sum(b_x-a_x)
+
+		#a_y = softmin(ε, C_yx, (b_x/blur).detach() )
+		#b_y = softmin(ε, C_yx, (b_x/blur).detach() )
+
+		return sinkhorn_wasserstein_fisher_rao(out,out_x,x,weights_x)
+	def update_dual(self,a_x,b_y,a_y,b_x):
+		self.a_x = a_x
+		self.b_y = b_y
+		self.a_y = a_y
+		self.b_x = b_x
+
+		#return  torch.sum(self.loss(self.cost,true_weights,true_data,weights,y,self.eps, self.diameter,self.scaling))
+
+
+
+
+
+
+class Sinkhorn_weighted(nn.Module):
+	r"""
+	Given two empirical measures each with :math:`P_1` locations
+	:math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
+	outputs an approximation of the regularized OT cost for point clouds.
+	Args:
+		eps (float): regularization coefficient
+		max_iter (int): maximum number of Sinkhorn iterations
+		reduction (string, optional): Specifies the reduction to apply to the output:
+			'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+			'mean': the sum of the output will be divided by the number of
+			elements in the output, 'sum': the output will be summed. Default: 'none'
+	Shape:
+		- Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
+		- Output: :math:`(N)` or :math:`()`, depending on `reduction`
+	"""
+	def __init__(self, kernel, particles,rm_map, eps=0.05):
+		super(Sinkhorn_weighted, self).__init__()
+		self.eps = eps
+		self.kernel = kernel
+		self.particles = particles
+		self.rm_map = rm_map
+		self.loss = get_loss(kernel,eps)
+		self.diameter = 10.
+		self.scaling = 0.5
+	def forward(self, true_data,true_weights,edges):
+		# The Sinkhorn algorithm takes as input three variables :
+		x, weights_x = self.rm_map(self.particles.data,self.particles.weights(),edges)
+		return  torch.sum(self.loss(true_weights,true_data,weights_x,x))
+
+		#return sinkhorn_wasserstein_fisher_rao(out,out_x,x,weights_x)
+
+
+
+
+
+class Sinkhorn_wasserstein_fisher_rao(tr.autograd.Function):
+	@staticmethod
+	def forward(ctx, out,out_x,x,weights_x):
+		ctx.save_for_backward(out,out_x,x,weights_x)
+
+		return out
+	@staticmethod
+	def backward(ctx, grad_output):
+
+		out,out_x,x,weights_x = ctx.saved_tensors
+		with  tr.enable_grad():
+		#return aa
+			gradients_x  = autograd.grad(outputs=out_x, inputs=[x],grad_outputs=grad_output, create_graph=True, only_inputs=True)[0]
+		#gradients_x = gradients_x/weights.unsqueeze(-1)
+		#gradients_x
+
+			if weights_x.requires_grad:
+				gradients_y = autograd.grad(outputs=out, inputs=[weights_x],
+						grad_outputs=grad_output,
+						create_graph=True, only_inputs=True)[0]
+			else:
+				gradients_y = None
+		#return aa
+		return None, None,gradients_x,gradients_y
+
+sinkhorn_wasserstein_fisher_rao = Sinkhorn_wasserstein_fisher_rao.apply
 
 # class Sinkhorn_weighted(nn.Module):
 #     r"""
@@ -151,35 +264,72 @@ class Sinkhorn_weighted(nn.Module):
 #         return  torch.sum(self.loss(true_data,y))
 
 
-
+def softmin_tensorized(ε, C, f):
+	B = C.shape[0]
+	return - ε * ( f.view(B,1,-1) - C/ε ).logsumexp(2).view(B,-1)
 
 class SinkhornEval(nn.Module):
-    r"""
-    Given two empirical measures each with :math:`P_1` locations
-    :math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
-    outputs an approximation of the regularized OT cost for point clouds.
-    Args:
-        eps (float): regularization coefficient
-        max_iter (int): maximum number of Sinkhorn iterations
-        reduction (string, optional): Specifies the reduction to apply to the output:
-            'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
-            'mean': the sum of the output will be divided by the number of
-            elements in the output, 'sum': the output will be summed. Default: 'none'
-    Shape:
-        - Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
-        - Output: :math:`(N)` or :math:`()`, depending on `reduction`
-    """
-    def __init__(self, eps, max_iter, particles_type):
-        super(SinkhornEval, self).__init__()
-        self.eps = eps
-        self.particles_type = particles_type
-        self.loss = SamplesLoss("sinkhorn", blur=eps, diameter=3.15, cost = utils.quaternion_geodesic_distance, backend= 'tensorized')
+	r"""
+	Given two empirical measures each with :math:`P_1` locations
+	:math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
+	outputs an approximation of the regularized OT cost for point clouds.
+	Args:
+		eps (float): regularization coefficient
+		max_iter (int): maximum number of Sinkhorn iterations
+		reduction (string, optional): Specifies the reduction to apply to the output:
+			'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+			'mean': the sum of the output will be divided by the number of
+			elements in the output, 'sum': the output will be summed. Default: 'none'
+	Shape:
+		- Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
+		- Output: :math:`(N)` or :math:`()`, depending on `reduction`
+	"""
+	def __init__(self,  particles, rm_map, eps, max_iter, particles_type):
+		super(SinkhornEval, self).__init__()
+		self.eps = eps
+		self.particles_type = particles_type
+		self.particles = particles
+		self.RM_map = rm_map
+		self.loss = SamplesLoss("sinkhorn", blur=eps, diameter=3.15, cost = utils.quaternion_geodesic_distance, backend= 'tensorized')
 
-    def forward(self, x, y,w_x,w_y):
-        # The Sinkhorn algorithm takes as input three variables :
-        if w_x is None or w_y is None:
+	def forward(self, y,w_y,edges):
+		# The Sinkhorn algorithm takes as input three variables :
+		x, w_x =self.RM_map(self.particles.data, self.particles.weights(),edges )
+		if w_x is None or w_y is None:
 
-            return  torch.mean(self.loss(x,y))
-        else:
-            return  torch.mean(self.loss(w_x,x,w_y,y))
-    
+			return  torch.sum(self.loss(x,y))
+		else:
+			return  torch.sum(self.loss(w_x,x,w_y,y))
+class SinkhornEvalAbs(nn.Module):
+	r"""
+	Given two empirical measures each with :math:`P_1` locations
+	:math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
+	outputs an approximation of the regularized OT cost for point clouds.
+	Args:
+		eps (float): regularization coefficient
+		max_iter (int): maximum number of Sinkhorn iterations
+		reduction (string, optional): Specifies the reduction to apply to the output:
+			'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+			'mean': the sum of the output will be divided by the number of
+			elements in the output, 'sum': the output will be summed. Default: 'none'
+	Shape:
+		- Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
+		- Output: :math:`(N)` or :math:`()`, depending on `reduction`
+	"""
+	def __init__(self,  particles, eps, max_iter, particles_type):
+		super(SinkhornEvalAbs, self).__init__()
+		self.eps = eps
+		self.particles_type = particles_type
+		self.particles = particles
+		#self.RM_map = rm_map
+		self.loss = SamplesLoss("sinkhorn", blur=eps, diameter=3.15, cost = utils.quaternion_geodesic_distance, backend= 'tensorized')
+		
+	def forward(self, y,w_y):
+		# The Sinkhorn algorithm takes as input three variables :
+		x, w_x = self.particles.data, self.particles.weights()
+		if w_x is None or w_y is None:
+
+			return  torch.mean(self.loss(x,y))
+		else:
+			return  torch.mean(self.loss(w_x,x,w_y,y))
+	

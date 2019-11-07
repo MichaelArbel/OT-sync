@@ -20,6 +20,8 @@ parser.add_argument('--log_dir', default = '',type= str,  help='log directory fo
 parser.add_argument('--log_name', default = 'exp',type= str,  help='log directory for summaries and checkpoints')
 parser.add_argument('--log_in_file', action='store_true',  help='log output in file ')
 
+parser.add_argument('--data_path', default = '../data',type= str,  help='log directory for summaries and checkpoints')
+parser.add_argument('--data_name', default = 'notredame',type= str,  help='log directory for summaries and checkpoints')
 
 
 parser.add_argument('--device', default = 0 ,type= int,  help='gpu device')
@@ -27,7 +29,7 @@ parser.add_argument('--dtype', default = 'float64' ,type= str,  help='gpu device
 
 parser.add_argument('--seed', default = 0 ,type= int,  help='gpu device')
 
-parser.add_argument('--total_iters', default=10000, type=int, help='total number of epochs')
+parser.add_argument('--total_iters', default=100000, type=int, help='total number of epochs')
 parser.add_argument('--lr', default=.01, type=float, help='learning rate')
 parser.add_argument('--use_scheduler',   action='store_true',  help='enables scheduler for learning rate')
 parser.add_argument('--scheduler',  default='StepLR',  type=str,  help='enables scheduler for learning rate')
@@ -82,8 +84,13 @@ parser.add_argument('--with_backtracking',  action='store_true',        help=' s
 
 
 parser.add_argument('--weights_factor',  default = 0.001,type= float,   help=' scpecify optimizer ')
+parser.add_argument('--with_couplings',  action='store_true',    help=' scpecify optimizer ')
 
 
+parser.add_argument('--num_rm_particles',  default = 3,type= int,    help=' scpecify optimizer ')
+parser.add_argument('--weight_decay',  default = 0.,type= int,    help=' scpecify optimizer ')
+parser.add_argument('--with_edges_splits', action='store_true',   help=' scpecify optimizer ')
+parser.add_argument('--batch_size',default = 10,type= int,  help=' scpecify optimizer ')
 
 
 

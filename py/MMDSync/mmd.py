@@ -107,36 +107,58 @@ class mmd2_weights_func(tr.autograd.Function):
 			term_YY = tr.einsum('nkl,nk,nl->' , gram_YY, fake_weights,weights)
 			term_XY = tr.einsum('nkl,nk,nl->' ,gram_XY, true_weights,weights)
 			term_XX = tr.einsum('nkl,nk,nl->' ,gram_XX, true_weights,true_weights)
-			mmd2_for_grad =  N_z*(term_YY - term_XY)
-			
 			mmd2 =  term_XX + term_YY -2.*term_XY
+			mmd2_for_grad_y =  N_z*(term_YY - term_XY)
+
+			term_YY = tr.einsum('nkl,nk->' , gram_YY, fake_weights)
+			term_XY = tr.einsum('nkl,nk->' ,gram_XY, true_weights)
+			mmd2_for_grad_x =  term_YY-term_XY
+
+
+
+
 			#mmd2_for_grad =  N_z*mmd2
 			##### warning this is dangerous
 			#mmd2_for_grad =  N_z*(tr.mean(gram_XY))
 			#mmd2 = mmd2_for_grad
 			
 
-		ctx.save_for_backward(mmd2_for_grad,mmd2,noisy_data,weights)
+		ctx.save_for_backward(mmd2_for_grad_x,mmd2_for_grad_y,noisy_data,weights)
 
 		return 0.5*mmd2
 
 	@staticmethod
 	def backward(ctx, grad_output):
 
-		mmd2_for_grad,mmd2, noisy_data, weights = ctx.saved_tensors
+		mmd2_for_grad_x,mmd2_for_grad_y, noisy_data, weights = ctx.saved_tensors
 		with  tr.enable_grad():
-			if noisy_data.requires_grad and weights.requires_grad:
-				gradients = autograd.grad(outputs=mmd2_for_grad, inputs=[noisy_data,weights],
+
+			gradients_x  = autograd.grad(outputs=mmd2_for_grad_x, inputs=[noisy_data],
 						  	grad_outputs=grad_output,
-						 	create_graph=True, only_inputs=True)
-				return None, None,None, None, None, gradients[0],gradients[1] 
-			elif not noisy_data.requires_grad and weights.requires_grad:
-				gradients = autograd.grad(outputs=mmd2_for_grad, inputs=[weights],
-						  	grad_outputs=grad_output,
-						 	create_graph=True, only_inputs=True)
-				return None, None,None, None, None, None,gradients[0]
-			elif  noisy_data.requires_grad and not weights.requires_grad:
-				gradients = autograd.grad(outputs=mmd2_for_grad, inputs=[noisy_data],
-						  	grad_outputs=grad_output,
-						 	create_graph=True, only_inputs=True)
-				return None, None, None, None, None, gradients[0],None
+						 	create_graph=True, only_inputs=True)[0]
+			if weights.requires_grad:
+				gradients_y = autograd.grad(outputs=mmd2_for_grad_y, inputs=[weights],
+					  	grad_outputs=grad_output,
+					 	create_graph=True, only_inputs=True)[0]
+			else:
+				gradients_y = None		
+
+			return None, None, None, None, None, gradients_x,gradients_y
+
+
+			# if noisy_data.requires_grad and weights.requires_grad:
+			# 	gradients = autograd.grad(outputs=mmd2_for_grad, inputs=[noisy_data,weights],
+			# 			  	grad_outputs=grad_output,
+			# 			 	create_graph=True, only_inputs=True)
+
+			# 	return None, None,None, None, None, gradients[0],gradients[1] 
+			# elif not noisy_data.requires_grad and weights.requires_grad:
+			# 	gradients = autograd.grad(outputs=mmd2_for_grad, inputs=[weights],
+			# 			  	grad_outputs=grad_output,
+			# 			 	create_graph=True, only_inputs=True)
+			# 	return None, None,None, None, None, None,gradients[0]
+			# elif  noisy_data.requires_grad and not weights.requires_grad:
+			# 	gradients = autograd.grad(outputs=mmd2_for_grad, inputs=[noisy_data],
+			# 			  	grad_outputs=grad_output,
+			# 			 	create_graph=True, only_inputs=True)
+			# 	return None, None, None, None, None, gradients[0],None
