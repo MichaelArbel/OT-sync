@@ -8,9 +8,9 @@ import cv2
 
 import plot_help as db
 
-#eng.addpath('bingham', nargout=0)
-#eng.addpath('bingham/tools', nargout=0)
-#eng.addpath('bingham/visualization', nargout=0)
+eng.addpath('D:/SDK/matlab_toolboxes/bingham/matlab/bingham', nargout=0)
+eng.addpath('D:/SDK/matlab_toolboxes/bingham/matlab/bingham/tools', nargout=0)
+eng.addpath('D:/SDK/matlab_toolboxes/bingham/matlab/bingham/visualization', nargout=0)
 
 # The quality of the rendering. It is super slow so for testing I always set it to 50 and for the final renderings back to 400!
 quality = 50
@@ -43,7 +43,7 @@ gt /= np.linalg.norm(gt, axis=1, keepdims=True)
 bingham = db.get_bingham(eng, distributions, GT=None, precision=quality)  / 255. # without ground truth
 bingham_gt = db.get_bingham(eng, distributions, GT=gt, precision=quality) / 255. # with ground truth
 
-db.fit()
+#db.fit()
 
 # show on display with and without gt
 cv2.imshow('bingham', cv2.hconcat([bingham, bingham_gt]))

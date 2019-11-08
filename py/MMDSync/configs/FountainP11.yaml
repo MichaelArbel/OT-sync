@@ -7,13 +7,13 @@ true_product_particles : True
 true_rm_noise_level : -1.
 true_bernoulli_noise : -1.
 
-batch_size : 64678
+batch_size : 128
 
 with_edges_splits : True
-data_name : 'notredame'
+data_name : 'FountainP11'
 data_path : '../data/'
-log_name : notredame
-lr : 0.005
+log_name : FountainP11
+lr : 0.001
 
 
 log_dir: 'D:/Data/OptSync'
@@ -34,8 +34,8 @@ loss : 'sinkhorn'
 kernel_cost : 'power_quaternion'
 with_weights : 1
 product_particles : 1
-num_particles : 5
-power : 1.2
+num_particles : 1
+power : 2.0
 with_couplings : False
 weights_factor : .01
 #weights_factor: 1.

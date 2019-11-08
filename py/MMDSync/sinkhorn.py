@@ -327,7 +327,6 @@ class SinkhornEvalAbs(nn.Module):
 		x, w_x = self.particles.data, self.particles.weights()
 		if self.eval_idx is None:
 			if w_x is None or w_y is None:
-
 				return  torch.mean(self.loss(x,y))
 			else:
 				return  torch.mean(self.loss(w_x,x,w_y,y))
@@ -336,6 +335,56 @@ class SinkhornEvalAbs(nn.Module):
 
 				return  torch.mean(self.loss(x[self.eval_idx,:,:],y[self.eval_idx,:,:]))
 			else:
-				return  torch.mean(self.loss(w_x[self.eval_idx,:],x[self.eval_idx,:,:],w_y[self.eval_idx,:],y[self.eval_idx,:,:]))	
+				return  torch.mean(self.loss(w_x[self.eval_idx,:],x[self.eval_idx,:,:],w_y[self.eval_idx,:],y[self.eval_idx,:,:]))
+
+
+class SinkhornEvalKBestAbs(nn.Module):
+	r"""
+	Given two empirical measures each with :math:`P_1` locations
+	:math:`x\in\mathbb{R}^{D_1}` and :math:`P_2` locations :math:`y\in\mathbb{R}^{D_2}`,
+	outputs an approximation of the regularized OT cost for point clouds.
+	Args:
+		eps (float): regularization coefficient
+		max_iter (int): maximum number of Sinkhorn iterations
+		reduction (string, optional): Specifies the reduction to apply to the output:
+			'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+			'mean': the sum of the output will be divided by the number of
+			elements in the output, 'sum': the output will be summed. Default: 'none'
+	Shape:
+		- Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
+		- Output: :math:`(N)` or :math:`()`, depending on `reduction`
+	"""
+
+	def __init__(self, particles, eps, max_iter, particles_type, eval_idx):
+		super(SinkhornEvalKBestAbs, self).__init__()
+		self.eps = eps
+		self.particles_type = particles_type
+		self.particles = particles
+		self.eval_idx = eval_idx
+		# self.RM_map = rm_map
+		self.loss = SamplesLoss("sinkhorn", blur=eps, diameter=3.15, cost=utils.quaternion_geodesic_distance,
+								backend='tensorized')
+
+	def forward(self, y, w_y):
+		# The Sinkhorn algorithm takes as input three variables :
+		x, w_x = self.particles.data, self.particles.weights()
+		if self.eval_idx is None:
+			meanDist = 0
+			for allDataIndex in range(0, y.size()[0]):
+				yi = torch.squeeze(y[allDataIndex, 0, :])
+				minD = 999999
+				for kbestIndex in range(0, x.size()[1]):
+					xi = torch.squeeze(x[allDataIndex, kbestIndex, :])
+					d = 2*torch.acos(torch.abs(torch.dot(xi,yi)))
+					if (d<minD):
+						minD = d
+				meanDist = meanDist + minD
+			return meanDist/x.size()[0]
+		else:
+			if w_x is None or w_y is None:
+				return torch.mean(self.loss(x[self.eval_idx, :, :], y[self.eval_idx, :, :]))
+			else:
+				return torch.mean(self.loss(w_x[self.eval_idx, :], x[self.eval_idx, :, :], w_y[self.eval_idx, :],
+											y[self.eval_idx, :, :]))
 
 	

@@ -2,9 +2,6 @@ import os
 import time 
 import numpy as np
 import sys
-
-
-
 import torch
 import torch.optim as optim
 import torch.optim as optim
@@ -117,6 +114,10 @@ class Trainer(object):
 		elif self.args.model=='real_data' and self.args.data_name=='artsquad':
 			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx = dl.data_loader_artsquad(self.args.data_path, self.args.data_name, self.dtype,self.device)
 			self.args.N = len(self.true_particles)
+		else:
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles, self.true_weights, self.eval_idx = dl.data_loader_notredame(
+			self.args.data_path, self.args.data_name, self.dtype, self.device)
+			self.args.N = len(self.true_particles)
 			#self.true_weights = (1./true_args.num_particles)*torch.ones([true_args.N, true_args.num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
 			
 	def split_edges(self):
@@ -168,19 +169,21 @@ class Trainer(object):
 		else:
 			raise NotImplementedError()
 	def get_eval_loss(self):
-		if self.args.eval_loss=='sinkhorn':
+		if self.args.eval_loss=='sinkhorn' or self.args.eval_loss=='kbest':
 			return sinkhorn.SinkhornEval(self.particles, self.RM_map, self.args.SH_eps, self.args.SH_max_iter,'quaternion')
 
 	def get_eval_loss_abs(self):
 		if self.args.eval_loss=='sinkhorn':
 			return sinkhorn.SinkhornEvalAbs(self.particles, self.args.SH_eps, self.args.SH_max_iter,'quaternion',self.eval_idx)
+		elif self.args.eval_loss=='kbest':
+			return sinkhorn.SinkhornEvalKBestAbs(self.particles, self.args.SH_eps, self.args.SH_max_iter, 'quaternion', self.eval_idx)
 
 	def train(self):
 		print("Starting Training Loop...")
 		start_time = time.time()
 		best_valid_loss = np.inf
 		with_config = True
-		#self.initialize()
+		self.initialize()
 		for iteration in range(self.args.total_iters):
 			#scheduler.step()
 			loss = self.train_iter(iteration)

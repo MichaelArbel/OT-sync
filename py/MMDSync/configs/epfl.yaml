@@ -10,10 +10,10 @@ true_bernoulli_noise : -1.
 batch_size : 64678
 
 with_edges_splits : True
-data_name : 'notredame'
+data_name : 'CastleP19'
 data_path : '../data/'
-log_name : notredame
-lr : 0.005
+log_name : CastleP19
+lr : 0.02
 
 
 log_dir: 'D:/Data/OptSync'

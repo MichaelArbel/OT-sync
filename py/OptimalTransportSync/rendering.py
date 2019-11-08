@@ -12,22 +12,44 @@ from torch.autograd import Variable
 from PIL import Image
 from sklearn.neighbors import NearestNeighbors
 from pyquaternion import Quaternion
+import matlab.engine
+eng = matlab.engine.start_matlab()
+
+import numpy as np
+import cv2
+
+import plot_help as db
+
+eng.addpath('D:/SDK/matlab_toolboxes/bingham/matlab/bingham', nargout=0)
+eng.addpath('D:/SDK/matlab_toolboxes/bingham/matlab/bingham/tools', nargout=0)
+eng.addpath('D:/SDK/matlab_toolboxes/bingham/matlab/bingham/visualization', nargout=0)
+
+# The quality of the rendering. It is super slow so for testing I always set it to 50 and for the final renderings back to 400!
+quality = 50
+
+#import os
+# switch to "osmesa" or "egl" before loading pyrender
+#os.environ["PYOPENGL_PLATFORM"] = "osmesa"
+#os.environ["PYOPENGL_PLATFORM"] = "egl"
 
 plt.close('all')
 
 maxImages = 72
 
-fuze_trimesh = trimesh.load('D:/Data/mug2.ply')
+fuze_trimesh = trimesh.load('D:/Data/mug2f.ply')
 mesh = pyrender.Mesh.from_trimesh(fuze_trimesh)
 
 #pyrender.Viewer(scene, use_raymond_lighting=True)
 
 camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=800.0/600.0)
 s = np.sqrt(2)/2
-light = pyrender.SpotLight(color=np.ones(3)*0.7, intensity=1.0,
+light = pyrender.SpotLight(color=np.ones(3)*0.3, intensity=0.4,
                                 innerConeAngle=np.pi/16.0,
                                 outerConeAngle=np.pi/6.0)
 
+light = pyrender.SpotLight(color=np.ones(3), intensity=3.0,
+                               innerConeAngle=np.pi/16.0)
+light2 = pyrender.DirectionalLight(color=[1,1,1], intensity=2e3)
 
 scene = pyrender.Scene()
 scene.add(mesh)
@@ -108,8 +130,47 @@ while (i<maxImages):
 kdtree = NearestNeighbors(n_neighbors=8, algorithm='ball_tree').fit(X)
 K = 8
 
+# render the spheres
+
 i = 54
-ie = i+2
+ie = i+10
+plt.figure()
+plt.axis('off')
+while (i < ie):
+    f = X[i, :]
+    qi = Q[i,:]
+    ti = np.transpose([T[i, :]])
+    Ri = Quaternion(qi[0], qi[1], qi[2], qi[3]).rotation_matrix
+    Ti = np.append(np.append(Ri, ti, 1), [[0, 0, 0, 1]], axis=0)
+
+    [distances, indices] = kdtree.kneighbors([f], K+1, return_distance=True)
+    print(distances)
+
+    qlist = []
+    for j in range(0, 9, 1):
+        ind = indices[0][j]
+        if (distances[0][j] >5):
+            continue
+
+        print(ind)
+        qj = Q[ind,:]
+        tj = np.transpose([T[ind, :]])
+
+        qclose = [qj[0], qj[1], qj[2], qj[3]]
+
+        qlist.append(np.transpose(qclose))
+
+    qlistNp = np.stack(qlist, axis=0)
+    distributions = matlab.double(np.array(qlistNp).tolist())
+    bingham = db.get_bingham(eng, distributions, GT=None, precision=quality) / 255.  # without ground truth
+    cv2.imshow('bingham', cv2.hconcat([bingham, bingham]))
+    cv2.waitKey(0)
+
+    i=i+1
+    continue
+
+i = 54
+ie = i+1
 plt.figure()
 plt.axis('off')
 while (i < ie):
@@ -141,14 +202,17 @@ while (i < ie):
 
         node = scene.add(camera, pose=Tj)
 
-        nodeLight = scene.add(light, pose=Tj)
+        #nodeLight = scene.add(light, pose=Tj)
 
         r = pyrender.OffscreenRenderer(800, 600)
         color, depth = r.render(scene)
 
-        plt.imshow(depth)
+        plt.imshow(color)
         plt.draw()
         plt.show(block=True)
+
+        #scene.remove_node(nodeLight)
+        scene.remove_node(node)
 
     i=i+1
     continue
@@ -171,9 +235,9 @@ while (i < ie):
     nodeLight = scene.add(light, pose=camera_pose)
 
     r = pyrender.OffscreenRenderer(800, 600)
-    color, depth = r.render(scene)
+    color, _ = r.render(scene)
 
-    plt.imshow(depth)
+    plt.imshow(color)
     plt.draw()
     plt.show(block=True)
 
