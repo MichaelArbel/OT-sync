@@ -330,10 +330,10 @@ class SinkhornEvalAbs(nn.Module):
 			if w_x is None or w_y is None:
 				return  torch.mean(self.loss(x,y))
 			else:
+
 				return  torch.mean(self.loss(w_x,x,w_y,y))
 		else:
 			if w_x is None or w_y is None:
-
 				return  torch.mean(self.loss(x[self.eval_idx,:,:],y[self.eval_idx,:,:]))
 			else:
 				return  torch.mean(self.loss(w_x[self.eval_idx,:],x[self.eval_idx,:,:],w_y[self.eval_idx,:],y[self.eval_idx,:,:]))

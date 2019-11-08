@@ -46,7 +46,6 @@ class Particles(nn.Module):
 			self._all_weights = tr.ones([N,num_particles],  dtype=self.data.dtype, device = self.data.device )
 		if self.new_thing:
 			self._weights = (1./num_particles)*tr.ones([num_edges,num_particles*num_particles],  dtype=self.data.dtype, device = self.data.device  )
-
 		if self.with_weights:
 			self._weights = nn.Parameter(self._weights)
 		if self.product_particles and self.with_couplings:
