@@ -91,6 +91,7 @@ parser.add_argument('--num_rm_particles',  default = 3,type= int,    help=' scpe
 parser.add_argument('--weight_decay',  default = 0.,type= int,    help=' scpecify optimizer ')
 parser.add_argument('--with_edges_splits', action='store_true',   help=' scpecify optimizer ')
 parser.add_argument('--batch_size',default = 10,type= int,  help=' scpecify optimizer ')
+parser.add_argument('--multi_gpu',action='store_true',  help=' scpecify optimizer ')
 
 
 

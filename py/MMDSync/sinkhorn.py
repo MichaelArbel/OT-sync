@@ -110,22 +110,19 @@ class Sinkhorn_weighted(nn.Module):
 		#with  tr.enable_grad():
 
 		#out = torch.sum(self.loss(true_weights,true_data,weights,y))
-		diameter, ε, ε_s, ρ = sd.scaling_parameters( x, y, p, blur, None, diameter, scaling )
+		diameter, eps, eps_s, rho = sd.scaling_parameters( x, y, p, blur, None, diameter, scaling )
 		C_xx, C_yy = ( cost( x, x.detach()), cost( y, y.detach()) )   # (B,N,N), (B,M,M)
 		C_xy, C_yx = ( cost( x, y.detach()), cost( y, x.detach()) )  # (B,N,M), (B,M,N)
 
-		#a_x, b_y, a_y, b_x = sd.sinkhorn_loop( softmin_tensorized, log_w_i, log_w_j, None, None, coupling_strenght, perm_coupling , ε_s, None, debias=False )
 		a_x, b_y, a_y, b_x = sd.sinkhorn_loop( softmin_tensorized, 
 									sd.log_weights(weights_x), sd.log_weights(weights_y), 
-									C_xx, C_yy, C_xy, C_yx, ε_s, ρ, debias=True, a_x_0 = self.a_x,a_y_0=self.a_y, b_x_0=self.b_x, b_y_0=self.b_y)
+									C_xx, C_yy, C_xy, C_yx, eps_s, rho, debias=True, a_x_0 = self.a_x,a_y_0=self.a_y, b_x_0=self.b_x, b_y_0=self.b_y)
 		#self.update_dual(a_x,b_y,a_y,b_x)
-		out = sd.sinkhorn_cost(ε, ρ, weights_x, weights_y, a_x, b_y, a_y, b_x, batch=True, debias=True, potentials=False)
+		out = sd.sinkhorn_cost(eps, rho, weights_x, weights_y, a_x, b_y, a_y, b_x, batch=True, debias=True, potentials=False)
 		out = tr.sum(out)
 		#out_x = tr.sum(tr.einsum('nl,nl->n',weights_x,(b_x-a_x)))
 		out_x = tr.sum(b_x-a_x)
 
-		#a_y = softmin(ε, C_yx, (b_x/blur).detach() )
-		#b_y = softmin(ε, C_yx, (b_x/blur).detach() )
 
 		return sinkhorn_wasserstein_fisher_rao(out,out_x,x,weights_x)
 	def update_dual(self,a_x,b_y,a_y,b_x):
@@ -264,9 +261,9 @@ sinkhorn_wasserstein_fisher_rao = Sinkhorn_wasserstein_fisher_rao.apply
 #         return  torch.sum(self.loss(true_data,y))
 
 
-def softmin_tensorized(ε, C, f):
+def softmin_tensorized(eps, C, f):
 	B = C.shape[0]
-	return - ε * ( f.view(B,1,-1) - C/ε ).logsumexp(2).view(B,-1)
+	return - eps * ( f.view(B,1,-1) - C/eps ).logsumexp(2).view(B,-1)
 
 class SinkhornEval(nn.Module):
 	r"""
@@ -316,20 +313,29 @@ class SinkhornEvalAbs(nn.Module):
 		- Input: :math:`(N, P_1, D_1)`, :math:`(N, P_2, D_2)`
 		- Output: :math:`(N)` or :math:`()`, depending on `reduction`
 	"""
-	def __init__(self,  particles, eps, max_iter, particles_type):
+	def __init__(self,  particles, eps, max_iter, particles_type,eval_idx):
 		super(SinkhornEvalAbs, self).__init__()
 		self.eps = eps
 		self.particles_type = particles_type
 		self.particles = particles
+		self.eval_idx = eval_idx
 		#self.RM_map = rm_map
 		self.loss = SamplesLoss("sinkhorn", blur=eps, diameter=3.15, cost = utils.quaternion_geodesic_distance, backend= 'tensorized')
 		
 	def forward(self, y,w_y):
 		# The Sinkhorn algorithm takes as input three variables :
 		x, w_x = self.particles.data, self.particles.weights()
-		if w_x is None or w_y is None:
+		if self.eval_idx is None:
+			if w_x is None or w_y is None:
 
-			return  torch.mean(self.loss(x,y))
+				return  torch.mean(self.loss(x,y))
+			else:
+				return  torch.mean(self.loss(w_x,x,w_y,y))
 		else:
-			return  torch.mean(self.loss(w_x,x,w_y,y))
+			if w_x is None or w_y is None:
+
+				return  torch.mean(self.loss(x[self.eval_idx,:,:],y[self.eval_idx,:,:]))
+			else:
+				return  torch.mean(self.loss(w_x[self.eval_idx,:],x[self.eval_idx,:,:],w_y[self.eval_idx,:],y[self.eval_idx,:,:]))	
+
 	

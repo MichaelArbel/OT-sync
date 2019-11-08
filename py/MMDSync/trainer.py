@@ -91,12 +91,13 @@ class Trainer(object):
 		self.loss_class = self.get_loss()
 		self.eval_loss = self.get_eval_loss()
 		self.eval_loss_abs = self.get_eval_loss_abs()
-		if torch.cuda.device_count() > 1:
+		if torch.cuda.device_count()   > 1 and self.args.multi_gpu:
 			self.loss = nn.DataParallel(self.loss_class)
 			self.eval_loss = nn.DataParallel(self.eval_loss )
+			print("Let's use", torch.cuda.device_count(), "GPUs!")
 		else:
 			self.loss = self.loss_class
-			print("Let's use", torch.cuda.device_count(), "GPUs!")
+			
 		self.loss.to(self.device)
 		self.eval_loss.to(self.device)
 
@@ -110,8 +111,11 @@ class Trainer(object):
 		if self.args.model=='synthetic':
 			self.edges, self.G = get_edges(self.args)
 			self.true_RM, self.true_RM_weights = self.get_true_rm()
-		elif self.args.model=='real_data':
-			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights = dl.data_loader(self.args.data_path, self.args.data_name, self.dtype,self.device)
+		elif self.args.model=='real_data' and self.args.data_name=='notredame':
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx = dl.data_loader_notredame(self.args.data_path, self.args.data_name, self.dtype,self.device)
+			self.args.N = len(self.true_particles)
+		elif self.args.model=='real_data' and self.args.data_name=='artsquad':
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx = dl.data_loader_artsquad(self.args.data_path, self.args.data_name, self.dtype,self.device)
 			self.args.N = len(self.true_particles)
 			#self.true_weights = (1./true_args.num_particles)*torch.ones([true_args.N, true_args.num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
 			
@@ -169,7 +173,7 @@ class Trainer(object):
 
 	def get_eval_loss_abs(self):
 		if self.args.eval_loss=='sinkhorn':
-			return sinkhorn.SinkhornEvalAbs(self.particles, self.args.SH_eps, self.args.SH_max_iter,'quaternion')
+			return sinkhorn.SinkhornEvalAbs(self.particles, self.args.SH_eps, self.args.SH_max_iter,'quaternion',self.eval_idx)
 
 	def train(self):
 		print("Starting Training Loop...")
