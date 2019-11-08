@@ -15,8 +15,8 @@ data_path : '../data/'
 log_name : notredame
 lr : 0.005
 
-#log_dir: 'D:/Data/OptSync'
-log_dir: '/nfs/data/michaela/projects/OptSync'
+log_dir: 'D:/Data/OptSync'
+#log_dir: '/nfs/data/michaela/projects/OptSync'
 
 #### method
 optimizer : 'SGD_unconstrained'     # this allows unconstrained optim over the weight add a penalty 
