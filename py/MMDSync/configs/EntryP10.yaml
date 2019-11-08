@@ -7,13 +7,13 @@ true_product_particles : True
 true_rm_noise_level : -1.
 true_bernoulli_noise : -1.
 
-batch_size : 64678
+batch_size : 88
 
 with_edges_splits : True
-data_name : 'notredame'
+data_name : 'EntryP10'
 data_path : '../data/'
-log_name : notredame
-lr : 0.005
+log_name : EntryP10
+lr : 0.002
 
 
 log_dir: 'D:/Data/OptSync'
@@ -22,7 +22,7 @@ particles_type : 'quaternion'
 optimizer : 'SGD'
 prior : 'gaussian'
 loss : 'sinkhorn'
-
+eval_loss : 'kbest'
 
 # kernel_cost : 'power_quaternion'
 # with_weights : 1
@@ -35,7 +35,7 @@ kernel_cost : 'power_quaternion'
 with_weights : 1
 product_particles : 1
 num_particles : 5
-power : 1.2
+power : 1.5
 with_couplings : False
 weights_factor : .01
 #weights_factor: 1.

@@ -13,7 +13,7 @@ def data_loader_notredame( data_path,name, dtype,device):
 
 	edges_path = os.path.join(data_path,name+'_Edges.txt')
 	edges = np.genfromtxt(edges_path, delimiter=',')
-	edges = (np.array(edges)-1).astype(int)
+	edges = (np.array(edges)-1).astype('int64')
 
 	Qabs_path = os.path.join(data_path,name+'_Qabs.txt')
 	Qabs = np.genfromtxt(Qabs_path, delimiter=',')
