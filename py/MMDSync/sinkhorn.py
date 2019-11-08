@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from utils import quaternion_geodesic_distance, squared_quaternion_geodesic_distance
 import utils
+import math
 
 # Adapted from ../OptimalTransportSync
 # Adapted from https://github.com/gpeyre/SinkhornAutoDiff
@@ -372,14 +373,20 @@ class SinkhornEvalKBestAbs(nn.Module):
 			meanDist = 0
 			for allDataIndex in range(0, y.size()[0]):
 				yi = torch.squeeze(y[allDataIndex, 0, :])
-				minD = 999999
+				minD = 9999999999
 				for kbestIndex in range(0, x.size()[1]):
 					xi = torch.squeeze(x[allDataIndex, kbestIndex, :])
-					d = 2*torch.acos(torch.abs(torch.dot(xi,yi)))
+					cost = torch.abs(torch.dot(xi,yi))
+					if (cost<-0.99999999):
+						cost=torch.tensor([-1.0]).cuda()
+					elif(cost>0.9999999):
+						cost =torch.tensor([1.0]).cuda()
+					d = 2*torch.acos(cost)
+					#print(d)
 					if (d<minD):
 						minD = d
 				meanDist = meanDist + minD
-			return meanDist/x.size()[0]
+			return torch.tensor(meanDist/x.size()[0])
 		else:
 			if w_x is None or w_y is None:
 				return torch.mean(self.loss(x[self.eval_idx, :, :], y[self.eval_idx, :, :]))
@@ -387,4 +394,32 @@ class SinkhornEvalKBestAbs(nn.Module):
 				return torch.mean(self.loss(w_x[self.eval_idx, :], x[self.eval_idx, :, :], w_y[self.eval_idx, :],
 											y[self.eval_idx, :, :]))
 
-	
+	# def forward(self, y, w_y):
+	# 	# The Sinkhorn algorithm takes as input three variables :
+	# 	x, w_x = self.particles.data, self.particles.weights()
+	# 	if self.eval_idx is None:
+	# 		meanDist = 0
+	# 		for allDataIndex in range(0, y.size()[0]):
+	# 			yi = torch.squeeze(y[allDataIndex, 0, :])
+	# 			minD = 999999
+	# 			for kbestIndex in range(0, x.size()[1]):
+	# 				xi = torch.squeeze(x[allDataIndex, kbestIndex, :])
+	# 				cost = torch.abs(torch.dot(xi,yi))
+	# 				if (cost.item()>1.0-0.0000001):
+	# 					cost = torch.tensor([1.0])
+	# 				elif(cost.item()<=1.0+0.0000001):
+	# 					cost = torch.tensor([1.0])
+	# 				print(cost)
+	# 				d = 2*torch.acos(cost)
+	# 				if (d<minD):
+	# 					minD = d
+	# 			meanDist = meanDist + minD
+	# 		return torch.tensor(meanDist/x.size()[0])
+	# 	else:
+	# 		if w_x is None or w_y is None:
+	# 			return torch.mean(self.loss(x[self.eval_idx, :, :], y[self.eval_idx, :, :]))
+	# 		else:
+	# 			return torch.mean(self.loss(w_x[self.eval_idx, :], x[self.eval_idx, :, :], w_y[self.eval_idx, :],
+	# 										y[self.eval_idx, :, :]))
+	#
+	#

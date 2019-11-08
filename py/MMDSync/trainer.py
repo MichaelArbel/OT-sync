@@ -183,7 +183,7 @@ class Trainer(object):
 		start_time = time.time()
 		best_valid_loss = np.inf
 		with_config = True
-		self.initialize()
+		#self.initialize()
 		for iteration in range(self.args.total_iters):
 			#scheduler.step()
 			loss = self.train_iter(iteration)
