@@ -108,6 +108,7 @@ class Trainer(object):
 		if self.args.model=='synthetic':
 			self.edges, self.G = get_edges(self.args)
 			self.true_RM, self.true_RM_weights = self.get_true_rm()
+			self.eval_idx =None
 		elif self.args.model=='real_data' and self.args.data_name=='notredame':
 			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx = dl.data_loader_notredame(self.args.data_path, self.args.data_name, self.dtype,self.device)
 			self.args.N = len(self.true_particles)
@@ -216,7 +217,8 @@ class Trainer(object):
 		d = self.particles.data.shape[2]
 		init_particles = torch.zeros([N,M,d], dtype=self.true_RM.dtype, device = self.true_RM.device)
 		
-		I = list(self.G.edges())
+		I = [tuple(l) for l in self.edges]
+		#I = list(self.G.edges())
 		N = len(self.G.nodes())
 
 		init_particles[0,:,0] = 1.
@@ -226,8 +228,8 @@ class Trainer(object):
 		done  = False
 		while not done:
 			cur_node = cur_set.pop()			
-			successors = [n for n in self.G.successors(cur_node)]
-			predecessors = [n for n in self.G.predecessors(cur_node)]
+			successors = set([n for n in self.G.successors(cur_node)])
+			predecessors = set([n for n in self.G.predecessors(cur_node)])
 			for suc in successors:
 				if suc not in done_set:
 					k = I.index((cur_node,suc))
@@ -241,7 +243,8 @@ class Trainer(object):
 			
 			mask = init_particles[:,:,0]<0
 			init_particles[mask]*=-1
-
+			predecessors = predecessors.difference(done_set)
+			successors = successors.difference(done_set)
 			cur_set.update(successors)
 			cur_set.update(predecessors)
 			done_set.update([cur_node])
@@ -327,7 +330,7 @@ class Trainer(object):
 		else:
 			edges = torch.from_numpy(self.edges)
 			#rm, rm_weights =self.RM_map(self.particles.data, self.particles.weights(),edges )
-			total_loss = self.eval_loss(self.true_RM,self.true_RM_weights)
+			total_loss = self.eval_loss(self.true_RM,self.true_RM_weights,edges)
 			total_loss = total_loss.item()		
 
 		return total_loss/len(self.edges)

@@ -37,13 +37,13 @@ class MMD_weighted(nn.Module):
 		self.mmd2 =  mmd2_weights_func.apply
 		self.with_noise = with_noise
 		
-	def forward(self, true_data,true_weights):
+	def forward(self, true_data,true_weights,edges):
 		if self.with_noise:
-			noisy_data, weights = self.rm_map(self.particles.add_noise(),self.particles.weights())
+			noisy_data, weights = self.rm_map(self.particles.add_noise(),self.particles.weights(),edges)
 		else:
-			noisy_data, weights = self.rm_map(self.particles.data,self.particles.weights())
+			noisy_data, weights = self.rm_map(self.particles.data,self.particles.weights(),edges)
 
-		fake_data,fake_weights =  self.rm_map(self.particles.data.clone().detach(),self.particles.weights().clone().detach())
+		fake_data,fake_weights =  self.rm_map(self.particles.data.clone().detach(),self.particles.weights().clone().detach(),edges)
 		mmd2_val = self.mmd2(self.kernel,true_data,true_weights,fake_data,fake_weights,noisy_data, weights)
 		return mmd2_val
 
