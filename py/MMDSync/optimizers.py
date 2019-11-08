@@ -110,13 +110,13 @@ class quaternion_SGD(Optimizer):
 class quaternion_SGD_unconstrained(Optimizer):
 
 	def __init__(self, params, lr=0.1, weights_factor=0.001 , momentum=0, dampening=0,
-				 weight_decay=0, nesterov=False):
+				 weight_penalty=0, nesterov=False):
 		if lr < 0.0:
 			raise ValueError("Invalid learning rate: {}".format(lr))
 		if momentum < 0.0:
 			raise ValueError("Invalid momentum value: {}".format(momentum))
-		if weight_decay < 0.0:
-			raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+		if weight_penalty < 0.0:
+			raise ValueError("Invalid weight_decay value: {}".format(weight_penalty))
 
 		defaults = dict(lr=lr, momentum=momentum, dampening=dampening,
 						weight_decay=0., nesterov=nesterov)
@@ -126,7 +126,7 @@ class quaternion_SGD_unconstrained(Optimizer):
 
 		self.params = None
 		self.weights_factor = weights_factor
-		self.weight_decay = weight_decay
+		self.weight_penalty = weight_penalty
 	def __setstate__(self, state):
 		super(quaternion_SGD_unconstrained, self).__setstate__(state)
 		for group in self.param_groups:
@@ -199,7 +199,7 @@ class quaternion_SGD_unconstrained(Optimizer):
 		for k ,group in enumerate(self.param_groups):
 			group['lr'] =lr	
 	def penalty(self,params):
-		return self.weight_decay*params
+		return self.weight_penalty*params
 
 
 

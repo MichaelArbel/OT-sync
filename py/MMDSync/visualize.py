@@ -88,7 +88,7 @@ def make_bg_sphere(eng,particles,ground_truth=None,quality=50):
     return bingham_fits
 def make_bg_spheres_from_dict(eng,res_path,iterations,method,num_cameras,GT=False,quality=50):
     bg_spheres= []
-    num_cameras +1= 
+    num_cameras +=1 
     if GT:
     	out_dict = get_all_particles(res_path,0)
     	GT_quaternions =  out_dict[method]['true_particles'][1:num_cameras,:,:]

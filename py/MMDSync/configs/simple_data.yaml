@@ -1,11 +1,25 @@
 #### problem
-completeness : 0.1
+completeness : 0.5
 model : 'synthetic'
 true_prior : 'gaussian'
-num_true_particles : 2
+num_true_particles : 1 # particles in ground truth 
 true_product_particles : True
 true_rm_noise_level : -1.
 true_bernoulli_noise : -1.
+lr : 0.01
+N : 16
 
+dtype : '64'
+particles_type : 'quaternion'
+optimizer : 'SGD_unconstrained'
+prior : 'gaussian'
+loss : 'mmd'
+eval_loss : 'sinkhorn'
 
-
+kernel_cost : 'power_quaternion'
+with_weights : 1
+product_particles : 1
+num_particles : 10 # how many particles would I actually use
+power : 1.2
+with_couplings : False
+weights_factor : .01

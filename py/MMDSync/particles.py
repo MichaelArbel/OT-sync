@@ -232,8 +232,6 @@ class QuaternionRelativeMeasureMapWeightsProduct(QuaternionRelativeMeasureMapWei
 		#xj = tr.ones_like(xi)
 		#xj = xj/tr.norm(xj,dim=-1).unsqueeze(-1)
 
-
-
 		if self.grad_type=='euclidean':
 			ratios = utils.forward_quaternion_X_times_Y_inv_prod(xi,xj)
 		elif self.grad_type=='quaternion':

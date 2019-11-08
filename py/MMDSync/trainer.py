@@ -4,7 +4,6 @@ import numpy as np
 import sys
 import torch
 import torch.optim as optim
-import torch.optim as optim
 import torch.nn as nn
 
 import utils
@@ -107,6 +106,7 @@ class Trainer(object):
 	def get_gt_data(self):
 		if self.args.model=='synthetic':
 			self.edges, self.G = get_edges(self.args)
+			self.edges = np.dtype('int64').type(self.edges)
 			self.true_RM, self.true_RM_weights = self.get_true_rm()
 			self.eval_idx =None
 		elif self.args.model=='real_data' and self.args.data_name=='notredame':
@@ -148,7 +148,7 @@ class Trainer(object):
 			if self.args.optimizer=='SGD':
 				return optimizers.quaternion_SGD(self.particles.parameters(), lr=lr, weights_factor= self.args.weights_factor)
 			elif  self.args.optimizer=='SGD_unconstrained':
-				return optimizers.quaternion_SGD_unconstrained(self.particles.parameters(), lr=lr, weights_factor= self.args.weights_factor,weight_decay=self.args.weight_decay)
+				return optimizers.quaternion_SGD_unconstrained(self.particles.parameters(), lr=lr, weights_factor= self.args.weights_factor,weight_penalty=self.args.weight_penalty)
 
 	def get_true_rm(self):
 		if self.args.model =='synthetic':
@@ -457,7 +457,7 @@ def get_prior(args, dtype, device):
 		return prior.GaussianQuaternionPrior(dtype, device)
 	elif args.prior == 'gaussian' and args.particles_type=='euclidian':
 		return prior.GaussianPrior(dtype,device)
-	elif args.prior=='bingrham ':
+	elif args.prior=='bingham ':
 		raise NotImplementedError()
 	else:
 		raise NotImplementedError()
