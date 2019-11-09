@@ -49,8 +49,8 @@ class Trainer(object):
 		else:
 			true_prod = 'prod_false'
 
-		model_name = args.model +'_' +  true_prod + '_N_' +str(args.num_true_particles) + '_noise_' +str(args.true_rm_noise_level)+'_B_noise_' + str(args.true_bernoulli_noise) + '_unfaithfulness_' + str(unfaithfulness) 
-		method_name =  args.loss+'_' +args.kernel_cost + '_'+ weights + rmp_map
+		model_name = args.model  + '_' +  true_prod + '_N_' +str(args.num_true_particles) + '_noise_' +str(args.true_rm_noise_level)+'_B_noise_' + str(args.true_bernoulli_noise) + '_unfaithfulness_' + str(unfaithfulness)
+		method_name =  'Np_' +str(args.num_particles) + '_opt_'+args.optimizer+ '_pow_' + str(args.power) + '_loss_' + args.loss + '_kernel_' + args.kernel_cost+ weights + rmp_map
 		self.log_dir = os.path.join(args.log_dir, args.log_name,  model_name , method_name, str(args.run_id))
 
 		if not os.path.isdir(self.log_dir):
@@ -178,13 +178,17 @@ class Trainer(object):
 			return sinkhorn.SinkhornEvalAbs(self.particles, self.args.SH_eps, self.args.SH_max_iter,'quaternion',self.eval_idx)
 		elif self.args.eval_loss=='kbest':
 			return sinkhorn.SinkhornEvalKBestAbs(self.particles, self.args.SH_eps, self.args.SH_max_iter, 'quaternion', self.eval_idx)
+		#elif self.args.eval_loss == 'mmd':
+		#	kernel = get_kernel(self.args, self.dtype, self.device)
+		#	return mmd.MMD_weighted(kernel, self.particles, self.RM_map, with_noise=self.args.with_noise)
+		#	return sinkhorn.SinkhornEvalAbs(self.particles, self.args.SH_eps, self.args.SH_max_iter, 'quaternion',self.eval_idx)
 
 	def train(self):
 		print("Starting Training Loop...")
 		start_time = time.time()
 		best_valid_loss = np.inf
 		with_config = True
-		#self.initialize()
+		self.initialize()
 		for iteration in range(self.args.total_iters):
 			#scheduler.step()
 			loss = self.train_iter(iteration)
@@ -202,7 +206,7 @@ class Trainer(object):
 					out = self.eval(iteration, loss,with_config=with_config)
 				with_config=False
 				if self.args.save==1:
-					save_pickle(out, os.path.join(self.log_dir, 'data'), name =  'iter_'+ str(iteration))
+					save_pickle(out, os.path.join(self.log_dir, 'data'), name =  'iter_'+ str(iteration).zfill(8))
 			#save(self.writer,loss_val,self.particles,iteration,save_particles= save_particles)
 
 		return loss
