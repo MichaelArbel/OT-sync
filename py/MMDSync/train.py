@@ -29,7 +29,7 @@ parser.add_argument('--dtype', default = 'float64' ,type= str,  help='gpu device
 
 parser.add_argument('--seed', default = 0 ,type= int,  help='gpu device')
 
-parser.add_argument('--total_iters', default=100000, type=int, help='total number of epochs')
+parser.add_argument('--total_iters', default=10000, type=int, help='total number of epochs')
 parser.add_argument('--lr', default=.01, type=float, help='learning rate')
 parser.add_argument('--use_scheduler',   action='store_true',  help='enables scheduler for learning rate')
 parser.add_argument('--scheduler',  default='StepLR',  type=str,  help='enables scheduler for learning rate')
