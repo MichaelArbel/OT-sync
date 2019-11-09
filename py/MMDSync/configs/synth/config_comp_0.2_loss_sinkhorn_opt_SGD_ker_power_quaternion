@@ -2,7 +2,6 @@ model : 'synthetic'
 true_prior : 'gaussian'
 dtype : '64'
 prior : 'gaussian'
-lr : 0.002
 particles_type : 'quaternion'
 product_particles : 1
 with_couplings : False
