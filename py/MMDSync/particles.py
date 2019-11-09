@@ -201,7 +201,7 @@ class QuaternionRelativeMeasureMapWeights(RelativeMeasureMap):
 		#mask = tr.bernoulli(self.bernoulli_noise*tr.ones([N,num_particles], dtype=ratios.dtype, device=ratios.device))
 		return ratios,RM_weights
 
-	def add_noise(self):
+	def add_noise(self,ratios):
 		noisy_ratios = add_noise_quaternion(self.noise_sampler,ratios,self.noise_level)
 		if self.bernoulli_noise>0.:
 			N,num_particles, _ = ratios.shape

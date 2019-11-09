@@ -53,7 +53,7 @@ def load(fn='', size=200, max_samples=None):
 
 
 
-def generate_graph(N, completeness):
+def _generate_graph(N, completeness):
 
 	G = nx.Graph()
 	Npair = int(N*(N-1)/2)
@@ -81,11 +81,17 @@ def generate_graph(N, completeness):
 	G = nx.from_numpy_matrix(G, create_using=nx.DiGraph())
 	I = np.array(list(G.edges()))
 	
-	if nx.is_connected(C):
-		return I, G
-	else:
-		print('The graph is not connected!!')
+	#if nx.is_connected(C):
+	return I, G,C
+	#else:
+	#	print('The graph is not connected!!')
 
+def generate_graph(N,completeness):
+	done = False
+	while not done:
+		I, G,C = _generate_graph(N,completeness)
+		done = nx.is_connected(C)
+	return I, G
 
 def power_quaternion_geodesic_distance(p,X,Y):
 	return quaternion_geodesic_distance(X,Y)**p

@@ -66,17 +66,62 @@
 ####################################################################
 ####################################################################
 
-python -m ipdb train.py --device=2 --log_name=toy_exp --config_method=configs/sinkhorn.yaml  --model='real_data' --data_path='../data/' --data_name='notredame' --lr=.1  &
+#python -m ipdb train.py --device=2 --log_name=toy_exp --config_method=configs/sinkhorn.yml  --model='real_data' --data_path='../data/' --data_name='notredame' --lr=.1  &
 
 
 
-python -m ipdb train.py --device=-2 --log_name=toy_exp --config_method=configs/sinkhorn.yaml  --model='real_data' --data_path='../data/' --data_name='notredame' --lr=.1  &
+#python -m ipdb train.py --device=-2 --log_name=toy_exp --config_method=configs/sinkhorn.yml  --model='real_data' --data_path='../data/' --data_name='notredame' --lr=.1  &
 
 
 
 
 
- python -m ipdb train.py --device=2 --log_name=toy_exp --config_method=configs/sinkhorn.yaml  --model='real_data' --data_path='../data/' --data_name='notredame' --lr=.1 --with_edges_splits --batch_size=100
+#python train_sacred.py with device=1 log_name=synthetic config_method=configs/synth/config_comp_0.1_loss_mmd_opt_SGD_ker_power_quaternion.yml;
+
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.1_loss_mmd_opt_SGD_ker_squared_euclidean.yml;
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.1_loss_mmd_opt_SGD_unconstrained_ker_power_quaternion.yml;
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.1_loss_mmd_opt_SGD_unconstrained_ker_squared_euclidean.yml;
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.1_loss_sinkhorn_opt_SGD_ker_power_quaternion.yml;
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.1_loss_sinkhorn_opt_SGD_ker_squared_euclidean.yml;
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.1_loss_sinkhorn_opt_SGD_unconstrained_ker_power_quaternion.yml;
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.1_loss_sinkhorn_opt_SGD_unconstrained_ker_squared_euclidean.yml;
+
+
+python train_sacred.py with device=2 log_name=new_synthetic config_method=configs/synth/config_comp_0.2_loss_mmd_opt_SGD_ker_power_quaternion.yml &
+python train_sacred.py with device=2 log_name=new_synthetic config_method=configs/synth/config_comp_0.2_loss_mmd_opt_SGD_ker_squared_euclidean.yml &
+python train_sacred.py with device=2 log_name=new_synthetic config_method=configs/synth/config_comp_0.2_loss_mmd_opt_SGD_unconstrained_ker_power_quaternion.yml &
+python train_sacred.py with device=2 log_name=new_synthetic config_method=configs/synth/config_comp_0.2_loss_mmd_opt_SGD_unconstrained_ker_squared_euclidean.yml &
+
+
+python train_sacred.py with device=1 log_name=synthetic config_method=configs/synth/config_comp_0.2_loss_sinkhorn_opt_SGD_ker_power_quaternion.yml &
+python train_sacred.py with device=1 log_name=synthetic config_method=configs/synth/config_comp_0.2_loss_sinkhorn_opt_SGD_ker_squared_euclidean.yml &
+python train_sacred.py with device=1 log_name=synthetic config_method=configs/synth/config_comp_0.2_loss_sinkhorn_opt_SGD_unconstrained_ker_power_quaternion.yml &
+python train_sacred.py with device=1 log_name=synthetic config_method=configs/synth/config_comp_0.2_loss_sinkhorn_opt_SGD_unconstrained_ker_squared_euclidean.yml &
+
+
+python train_sacred.py with device=0 log_name=synthetic config_method=configs/synth/config_comp_0.5_loss_mmd_opt_SGD_ker_power_quaternion.yml & 
+python train_sacred.py with device=0 log_name=synthetic config_method=configs/synth/config_comp_0.5_loss_mmd_opt_SGD_ker_squared_euclidean.yml &
+python train_sacred.py with device=0 log_name=synthetic config_method=configs/synth/config_comp_0.5_loss_mmd_opt_SGD_unconstrained_ker_power_quaternion.yml & 
+python train_sacred.py with device=0 log_name=synthetic config_method=configs/synth/config_comp_0.5_loss_mmd_opt_SGD_unconstrained_ker_squared_euclidean.yml &
+
+
+
+# python train_sacred.py with device=0 log_name=synthetic config_method=configs/synth/config_comp_0.5_loss_sinkhorn_opt_SGD_ker_power_quaternion.yml &
+# python train_sacred.py with device=0 log_name=synthetic config_method=configs/synth/config_comp_0.5_loss_sinkhorn_opt_SGD_ker_squared_euclidean.yml &
+# python train_sacred.py with device=0 log_name=synthetic config_method=configs/synth/config_comp_0.5_loss_sinkhorn_opt_SGD_unconstrained_ker_power_quaternion.yml &
+# python train_sacred.py with device=0 log_name=synthetic config_method=configs/synth/config_comp_0.5_loss_sinkhorn_opt_SGD_unconstrained_ker_squared_euclidean.yml &
+
+# python train_sacred.py with device=1 log_name=synthetic config_method=configs/synth/config_comp_0.7_loss_mmd_opt_SGD_ker_power_quaternion.yml & 
+# python train_sacred.py with device=1 log_name=synthetic config_method=configs/synth/config_comp_0.7_loss_mmd_opt_SGD_ker_squared_euclidean.yml & 
+# python train_sacred.py with device=1 log_name=synthetic config_method=configs/synth/config_comp_0.7_loss_mmd_opt_SGD_unconstrained_ker_power_quaternion.yml &
+# python train_sacred.py with device=1 log_name=synthetic config_method=configs/synth/config_comp_0.7_loss_mmd_opt_SGD_unconstrained_ker_squared_euclidean.yml &
+
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.7_loss_sinkhorn_opt_SGD_ker_power_quaternion.yml & 
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.7_loss_sinkhorn_opt_SGD_ker_squared_euclidean.yml & 
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.7_loss_sinkhorn_opt_SGD_unconstrained_ker_power_quaternion.yml & 
+# python train_sacred.py with device=2 log_name=synthetic config_method=configs/synth/config_comp_0.7_loss_sinkhorn_opt_SGD_unconstrained_ker_squared_euclidean.yml &
+
+
 
 
 

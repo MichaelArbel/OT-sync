@@ -63,7 +63,7 @@ parser.add_argument('--SH_max_iter',  default = 1000 ,type= float,   help=' scpe
 parser.add_argument('--eval_loss',  default = 'sinkhorn' ,type= str,   help=' scpecify optimizer ')
 parser.add_argument('--freq_eval',  default = 10 ,type= float,   help=' scpecify optimizer ')
 parser.add_argument('--with_weights',  default = 1 ,type= int,   help=' scpecify optimizer ')
-parser.add_argument('--with_noise',  default = 0,type= int,   help=' scpecify optimizer ')
+parser.add_argument('--with_noise',  action='store_true',  help=' scpecify optimizer ')
 parser.add_argument('--product_particles',  default = 0,type= int,   help=' scpecify optimizer ')
 parser.add_argument('--run_id',  default = 0,type= int,   help=' scpecify optimizer ')
 

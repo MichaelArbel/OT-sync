@@ -164,7 +164,7 @@ class Trainer(object):
 			# Weights are uniform
 			self.true_weights = (1./true_args.num_particles)*torch.ones([true_args.N, true_args.num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
 			
-			rm, rm_weights = true_RM_map(self.true_particles,  self.true_weights )
+			rm, rm_weights = true_RM_map(self.true_particles,  self.true_weights ,self.edges)
 				
 			return rm, rm_weights
 		else:
