@@ -13,8 +13,7 @@ with_edges_splits : True
 data_name : 'notredame'
 data_path : '../data/'
 log_name : notredame
-lr : 0.005
-
+lr : 0.1
 
 log_dir: 'D:/Data/OptSync'
 dtype : '64'
@@ -23,13 +22,10 @@ optimizer : 'SGD'
 prior : 'gaussian'
 loss : 'sinkhorn'
 
-
 # kernel_cost : 'power_quaternion'
 # with_weights : 1
 # product_particles : 1
 # num_particles : 20
-
-
 
 kernel_cost : 'power_quaternion'
 with_weights : 1
