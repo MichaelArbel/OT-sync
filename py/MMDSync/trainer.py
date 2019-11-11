@@ -268,7 +268,72 @@ class Trainer(object):
 
 		#self.particles.data.data = 1.* self.true_particles
 		
-		#self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.001)
+		self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.001)
+		#mask = self.particles.data<0
+		#self.particles.data.data[mask]*=-1.
+		end = time.time()
+		print('assigned value in '+str(end-start) + 's')
+
+
+
+	def initialize(self):
+		print('initiallizing particles')
+		start = time.time()
+		num_iters = 10
+		K = self.edges.shape[0]
+		M = self.true_RM.shape[1]
+		N = self.particles.data.shape[0]
+		d = self.particles.data.shape[2]
+		cpu_true_RM = self.true_RM
+		init_particles = torch.zeros([N,M,d], dtype=self.true_RM.dtype, device = cpu_true_RM.device)
+		
+		
+		I = [tuple(l) for l in self.edges]
+		#I = list(self.G.edges())
+		N = len(self.G.nodes())
+
+		init_particles[0,:,0] = 1.
+		j = 0
+		done_set = set([])
+		cur_set = set([0])
+		done  = False
+
+		while not done:
+			cur_node = cur_set.pop()			
+			successors = set([n for n in self.G.successors(cur_node)])
+			predecessors = set([n for n in self.G.predecessors(cur_node)])
+			predecessors = predecessors.difference(done_set)
+			predecessors = predecessors.difference(cur_set)
+			successors = successors.difference(done_set)
+			successors = successors.difference(cur_set)
+			suc = list(successors)
+			K = [I.index((cur_node,s)) for s in suc]
+			cp = 1.*cpu_true_RM[K,:,:]
+			cp[:,:,1:]*=-1
+			if len(K)>0:
+				init_particles[suc,:,:] = utils.quaternion_prod(cp, init_particles[cur_node,:,:].unsqueeze(0).repeat(len(K),1,1))
+			pre = list(predecessors)
+			K = [I.index((p,cur_node)) for p in pre]
+			if len(K)>0:
+				init_particles[pre,:,:] = utils.quaternion_prod(cpu_true_RM[K,:,:],init_particles[cur_node,:,:].unsqueeze(0).repeat(len(K),1,1))
+			mask = init_particles[:,:,0]<0
+			init_particles[mask]*=-1
+			cur_set.update(successors)
+			cur_set.update(predecessors)
+
+			done_set.update([cur_node])
+			
+			#print('curset: '+str(len(cur_set)) +  ', done_set: '+str(len(done_set)) )
+			done = (len(done_set)==N)
+		N,num_particles, _ = self.particles.data.shape
+		mask_int =torch.multinomial(self.true_RM_weights[0,:],num_particles, replacement=True)
+		init_particles = init_particles.to(self.true_RM.device)
+		self.particles.data.data = init_particles[:,mask_int,:]
+		#self.particles.data.data = self.true_particles[:,mask_int,:]
+
+		#self.particles.data.data = 1.* self.true_particles
+		
+		self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.0001)
 		#mask = self.particles.data<0
 		#self.particles.data.data[mask]*=-1.
 		end = time.time()
@@ -278,6 +343,7 @@ class Trainer(object):
 		self.particles.zero_grad()
 
 		loss = self.mini_batch_iter(with_backward = True)
+		#self.backtracking(loss)
 		self.update_gradient(loss,iteration)
 		#loss = self.mini_batch_iter(with_backward=True)
 		if loss> self.old_loss:
@@ -285,7 +351,7 @@ class Trainer(object):
 		#	self.optimizer.param_groups[0]['lr'] =0.5*self.optimizer.param_groups[0]['lr']
 		#	print('decreased lr')
 		self.old_loss = loss
-		self.optimizer.param_groups[0]['lr'] = self.args.lr/(1 + np.sqrt(iteration/1000.))
+		self.optimizer.param_groups[0]['lr'] = self.args.lr/(1 + np.sqrt(iteration/self.args.decay_lr))
 		#if iteration==500:
 		#	self.optimizer.param_groups[0]['lr']*=0.1
 
@@ -362,6 +428,25 @@ class Trainer(object):
 			count +=1
 			self.optimizer.decrease_lr()
 		self.optimizer.reset_lr(self.args.lr)
+
+
+	def backtracking_2(self,loss):
+		self.optimizer.keep_weights()
+		done = False
+		count = 0
+		count_max = 1
+		#self.optimizer.reset_weights()
+		self.optimizer.step(loss=loss)
+			#self.optimizer.step(loss=None)
+		with torch.no_grad():
+			new_loss = self.mini_batch_iter(with_backward=False)
+				#new_loss = self.loss(self.true_RM, self.true_RM_weights).item()
+		if new_loss>loss:
+			self.optimizer.keep_weights()
+			self.particles.data.grad*=-1.
+			self.optimizer.step(loss=loss)
+			#self.optimizer.decrease_lr()
+		#self.optimizer.reset_lr(self.args.lr)
 
 	def eval(self,iteration, loss_val, with_config=False):
 		out ={}

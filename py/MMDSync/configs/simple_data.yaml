@@ -1,28 +1,81 @@
-#### problem
-completeness : 0.5
+# #### problem
+# completeness : 0.5
+# model : 'synthetic'
+# true_prior : 'gaussian'
+# num_true_particles : 4 # particles in ground truth 
+# true_product_particles : True
+# true_rm_noise_level : -1.
+# true_bernoulli_noise : -1.
+# lr : 0.1
+# N : 16
+
+# dtype : '64'
+# particles_type : 'quaternion'
+# optimizer : 'SGD'
+# prior : 'gaussian'
+# loss : 'sinkhorn'
+# eval_loss : 'sinkhorn'
+
+# kernel_cost : 'power_quaternion'
+# with_weights : 1
+# product_particles : 1
+# num_particles : 10 # how many particles would I actually use
+# power : 1.1
+# with_couplings : False
+# weights_factor : .005
+
+# log_name : synthetic
+# log_dir: 'D:/Data/OptSync'
+
+
+
+
+
+
 model : 'synthetic'
 true_prior : 'gaussian'
-num_true_particles : 4 # particles in ground truth 
-true_product_particles : True
-true_rm_noise_level : -1.
-true_bernoulli_noise : -1.
-lr : 0.1
-N : 16
-
 dtype : '64'
-particles_type : 'quaternion'
-optimizer : 'SGD'
 prior : 'gaussian'
-loss : 'sinkhorn'
-eval_loss : 'sinkhorn'
-
-kernel_cost : 'power_quaternion'
-with_weights : 1
+particles_type : 'quaternion'
 product_particles : 1
-num_particles : 10 # how many particles would I actually use
-power : 1.1
 with_couplings : False
-weights_factor : .005
+weights_factor : .1
+true_bernoulli_noise : -1.0
+eval_loss : 'sinkhorn'
+N : 10
+log_name : test_synthetic
+log_dir : /nfs/data/michaela/projects/OptSync
+batch_size : 10000
+num_true_particles : 4
+with_weights : 1
 
-log_name : synthetic
-log_dir: 'D:/Data/OptSync'
+completeness : 0.2
+loss : sinkhorn
+optimizer : SGD
+kernel_cost : power_quaternion
+power : 2.
+num_particles : 20
+true_rm_noise_level : 0
+lr : 0.1
+
+true_product_particles : 1
+
+decay_lr : 1000000000
+SH_eps : 0.1
+#SH_max_iter : 200
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

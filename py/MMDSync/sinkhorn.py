@@ -20,6 +20,11 @@ from functools import partial
 import torch as tr
 from torch import autograd
 
+def squared_dist(x,y):
+	tmp = (X.unsqueeze(-2) - Y.unsqueeze(-3))**2
+	dist =  tr.sum(tmp,dim=-1)
+	return dist
+
 def get_loss(kernel,eps):
 	if kernel.kernel_type=='quaternion':
 		return SamplesLoss("sinkhorn", blur=eps, diameter=3.15, cost = utils.quaternion_geodesic_distance, backend= 'tensorized')
@@ -27,11 +32,26 @@ def get_loss(kernel,eps):
 		return SamplesLoss("sinkhorn", p=2, blur=eps, diameter=4., backend= 'tensorized')
 	elif kernel.kernel_type=='power_quaternion':
 		dist = partial(utils.power_quaternion_geodesic_distance,kernel.power)
+		#dist = partial(utils.sum_power_quaternion_geodesic_distance,kernel.power)
 		#return sinkhorn_wasserstein_fisher_rao,dist
 		return SamplesLoss("sinkhorn", blur=eps, diameter=10.,cost = dist, backend= 'tensorized')
 	elif kernel.kernel_type=='sum_power_quaternion':
 		dist = partial(utils.sum_power_quaternion_geodesic_distance,kernel.power)
 		return SamplesLoss("sinkhorn", blur=eps, diameter=10.,cost = dist, backend= 'tensorized')
+
+def get_loss_w_fisher(kernel,eps):
+	if kernel.kernel_type=='quaternion':
+		dist = utils.quaternion_geodesic_distance
+	elif kernel.kernel_type=='squared_euclidean':
+		dist = squared_dist
+	elif kernel.kernel_type=='power_quaternion':
+		dist = partial(utils.power_quaternion_geodesic_distance,kernel.power)
+	return sinkhorn_wasserstein_fisher_rao,dist
+
+
+
+
+
 	#elif kernel.kernel_type=='sinkhorn_gaussian':
 	#    return SamplesLoss("gaussian", blur=1., diameter=4., backend= 'tensorized')
 	#elif kernel.kernel_type=='min_squared_euclidean':
@@ -90,16 +110,16 @@ class Sinkhorn_weighted(nn.Module):
 		self.kernel = kernel
 		self.particles = particles
 		self.rm_map = rm_map
-		self.loss,self.cost = get_loss(kernel,eps)
+		self.loss,self.cost = get_loss_w_fisher(kernel,eps)
 		self.diameter = 10.
 		self.scaling = 0.5
 		self.a_x = 0.
 		self.b_y = 0.
 		self.a_y = 0.
 		self.b_x = 0.
-	def forward(self, true_data,true_weights):
+	def forward(self, true_data,true_weights,edges):
 		# The Sinkhorn algorithm takes as input three variables :
-		x, weights_x = self.rm_map(self.particles.data,self.particles.weights())
+		x, weights_x = self.rm_map(self.particles.data,self.particles.weights(),edges)
 		y = true_data
 		weights_y = true_weights
 		cost = self.cost
@@ -167,7 +187,10 @@ class Sinkhorn_weighted(nn.Module):
 	def forward(self, true_data,true_weights,edges):
 		# The Sinkhorn algorithm takes as input three variables :
 		x, weights_x = self.rm_map(self.particles.data,self.particles.weights(),edges)
-		return  torch.sum(self.loss(true_weights,true_data,weights_x,x))
+		out = torch.sum(self.loss(true_weights,true_data,weights_x,x))
+		return out
+		#return sinkhorn_wasserstein_fisher_rao_2(out,x,weights_x)
+		  
 
 		#return sinkhorn_wasserstein_fisher_rao(out,out_x,x,weights_x)
 
@@ -199,6 +222,38 @@ class Sinkhorn_wasserstein_fisher_rao(tr.autograd.Function):
 				gradients_y = None
 		#return aa
 		return None, None,gradients_x,gradients_y
+
+
+
+class Sinkhorn_wasserstein_fisher_rao_2(tr.autograd.Function):
+	@staticmethod
+	def forward(ctx, out,x,weights_x):
+		ctx.save_for_backward(out,x,weights_x)
+
+		return out
+	@staticmethod
+	def backward(ctx, grad_output):
+
+		out,x,weights_x = ctx.saved_tensors
+		with  tr.enable_grad():
+		#return aa
+			gradients_x  = autograd.grad(outputs=out, inputs=[x],grad_outputs=grad_output, create_graph=True, only_inputs=True)[0]
+		#gradients_x = gradients_x/weights.unsqueeze(-1)
+		#gradients_x
+			inv_w = 1./weights_x
+			inv_w[weights_x<=0.] = 1.
+			gradients_x = gradients_x*inv_w.unsqueeze(-1)
+			if weights_x.requires_grad:
+				gradients_y = autograd.grad(outputs=out, inputs=[weights_x],
+						grad_outputs=grad_output,
+						create_graph=True, only_inputs=True)[0]
+			else:
+				gradients_y = None
+		#return aa
+		return None,gradients_x,gradients_y
+
+sinkhorn_wasserstein_fisher_rao_2 = Sinkhorn_wasserstein_fisher_rao_2.apply
+
 
 sinkhorn_wasserstein_fisher_rao = Sinkhorn_wasserstein_fisher_rao.apply
 

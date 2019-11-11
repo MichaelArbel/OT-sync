@@ -51,6 +51,8 @@ class Particles(nn.Module):
 		if self.product_particles and self.with_couplings:
 			self.coupling_strenght =  tr.randn([num_edges,num_particles,num_particles],  dtype=self.data.dtype, device = self.data.device  )
 			self.coupling_strenght = nn.Parameter(self.coupling_strenght)
+		#self._all_weights = Variable(self._all_weights)
+		#self._all_weights.requires_grad = False
 	def add_noise(self):
 		noise = self.prior.sample(self.N,self.num_particles)
 		return self.data + self.noise_level*noise 
@@ -63,7 +65,9 @@ class Particles(nn.Module):
 		elif self.product_particles:
 			return self._weights**2
 		else:
-			return tr.einsum('k,nk->nk', self._weights**2, self._all_weights)
+			out = self._weights**2
+			out = out.unsqueeze(0).repeat(self.N,1)
+			return out
 class QuaternionParticles(Particles):
 	def __init__(self,prior, N, num_particles, num_edges,with_weights,with_couplings,product_particles,noise_level, noise_decay):
 		# particle is a tensor   of shape N x num_paricles x d
@@ -102,9 +106,9 @@ class RelativeMeasureMapWeights(nn.Module):
 		self.edges = edges
 		self.grad_type = grad_type
 
-	def forward(self,particles,weights):
-		i = self.edges[:,0]
-		j = self.edges[:,1]
+	def forward(self,particles,weights,edges):
+		i = edges[:,0]
+		j = edges[:,1]
 		xi = particles[i,:,:]
 		xj = particles[j,:,:]
 		ratios = xi - xj
@@ -253,22 +257,22 @@ class QuaternionRelativeMeasureMapWeightsProductPrior(QuaternionRelativeMeasureM
 		self.num_particles = num_particles
 
 
-	def forward(self,particles, weights):
+	def forward(self,particles, weights,edges):
 		#ratios  = utils.quaternion_prod(xi,xj)
 		#normalize = tr.norm(ratios,dim=-1).clone().detach()
 		#ratios  = ratios/normalize.unsqueeze(-1)
-		ratios,RM_weights = self.compute_ratios(particles,weights)
+		ratios,RM_weights = self.compute_ratios(particles,weights,edges)
 		if self.noise_level>0.:
 			ratios = self.add_noise(ratios)
 
 		return ratios,RM_weights
 
-	def compute_ratios(self,particles,weights):
+	def compute_ratios(self,particles,weights,edges):
 
 		ratios = []
 		RM_weights = []
-		i = self.edges[:,0]
-		j = self.edges[:,1]
+		i = edges[:,0]
+		j = edges[:,1]
 		xi = particles[i,:,:]
 		xj = particles[j,:,:]
 		N,K,_ = xi.shape

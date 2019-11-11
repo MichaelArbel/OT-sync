@@ -22,3 +22,4 @@ kernel_cost : power_quaternion
 power : 2
 num_particles : 10
 true_rm_noise_level : 0
+lr : 0.1

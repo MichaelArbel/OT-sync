@@ -35,6 +35,7 @@ parser.add_argument('--use_scheduler',   action='store_true',  help='enables sch
 parser.add_argument('--scheduler',  default='StepLR',  type=str,  help='enables scheduler for learning rate')
 parser.add_argument('--lr_step_size',  default=1000, type=int,  help='enables scheduler for learning rate')
 parser.add_argument('--lr_decay',  default=.1, type=float,   help='enables scheduler for learning rate')
+parser.add_argument('--decay_lr',  default=10000, type=float,   help='enables scheduler for learning rate')
 
 
 
@@ -71,7 +72,7 @@ parser.add_argument('--run_id',  default = 0,type= int,   help=' scpecify optimi
 
 parser.add_argument('--true_prior',  default='gaussian', type=str,  help=' scpecify optimizer ')
 parser.add_argument('--num_true_particles',  default = 1 ,type= int,   help=' scpecify optimizer ')
-parser.add_argument('--true_product_particles',  action='store_true',   help=' scpecify optimizer ')
+parser.add_argument('--true_product_particles', default = 1 ,type= int,  help=' scpecify optimizer ')
 parser.add_argument('--true_rm_noise_level',  default = -1. ,type= float,   help=' scpecify optimizer ')
 parser.add_argument('--true_bernoulli_noise',  default = -1.,type= float,   help=' scpecify optimizer ')
 
