@@ -163,13 +163,13 @@ while (i < ie):
     qlistNp = np.stack(qlist, axis=0)
     distributions = matlab.double(np.array(qlistNp).tolist())
     bingham = db.get_bingham(eng, distributions, GT=None, precision=quality) / 255.  # without ground truth
-    cv2.imshow('bingham', cv2.hconcat([bingham, bingham]))
-    cv2.waitKey(0)
+    #cv2.imshow('bingham', cv2.hconcat([bingham, bingham]))
+    #cv2.waitKey(0)
 
     i=i+1
     continue
 
-i = 54
+i = 28
 ie = i+1
 plt.figure()
 plt.axis('off')
