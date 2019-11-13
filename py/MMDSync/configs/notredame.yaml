@@ -12,8 +12,8 @@ batch_size : 70000
 with_edges_splits : True
 data_name : 'notredame'
 data_path : '../data/'
-log_name : new_notredame
-lr : 0.01
+log_name : new_notredame_2
+lr : 0.001
 log_dir : /nfs/data/michaela/projects/OptSync
 
 dtype : '64'
@@ -29,8 +29,8 @@ loss : 'sinkhorn'
 
 kernel_cost : 'power_quaternion'
 with_weights : 1
-product_particles : 0
-num_particles : 10
+product_particles : 1
+num_particles : 5
 power : 2.
 with_couplings : False
 weights_factor : .1

@@ -21,23 +21,21 @@ def data_loader_notredame( data_path,name, dtype,device):
 	Qrel_path = os.path.join(data_path,name+'_Qrel.txt')
 	Qrel = np.genfromtxt(Qrel_path, delimiter=',')
 
-	vals = np.ones(edges.shape[0], dtype=np.double)
-	
-	rows = (np.asarray(edges[:,0])).astype(int)
-	cols = (np.asarray(edges[:,1])).astype(int)
-	set_edges = set(edges[:,0])
-	set_edges.update(edges[:,1])
-	N = len(set_edges)
-	G = np.zeros((N,N))
-	G[rows, cols] = vals
-
-	C = nx.from_numpy_matrix(G)
-	G = nx.from_numpy_matrix(G, create_using=nx.DiGraph())
-	#I = np.array(list(G.edges()))
-
 	Qrel = tr.tensor(Qrel, dtype=dtype,device=device).unsqueeze(1)    # do not assigne to gpu for now (this matrix can be huge)
 	Qabs =  tr.tensor(Qabs, dtype=dtype, device=device).unsqueeze(1)
 	Qabs[:,:,1:]*=-1.
+
+
+	G,C = make_graphs(edges)
+
+
+
+	#I = np.array(list(G.edges()))
+	degree = np.array((G.degree()))
+	max_index = np.argmax(degree[:,1])
+
+	G, edges, Qabs = swap_nodes(G,edges,Qabs,0,max_index)
+
 
 	# Additional formatting  : N x P x d 
 	N,P,_ = Qabs.shape
@@ -48,6 +46,48 @@ def data_loader_notredame( data_path,name, dtype,device):
 	wrel = (1./Prel) * tr.ones([Nrel, Prel], dtype=dtype, device = device )
 	if nx.is_connected(C):
 		return edges, G, Qrel, wrel, Qabs, wabs,None
+
+
+
+def swap_nodes(G,edges,Qabs,node_1,node_2):
+	successors_1 = [n for n in G.successors(node_1)]
+	predecessors_1 = [n for n in G.predecessors(node_1)]
+	successors_2 = [n for n in G.successors(node_2)]
+	predecessors_2 = [n for n in G.predecessors(node_2)]	
+	I = [tuple(l) for l in edges]
+
+	K_s_1 = [I.index((node_1,s)) for s in successors_1]
+	K_s_2 = [I.index((node_2,s)) for s in successors_2]
+	K_p_1 = [I.index((p,node_1)) for p in predecessors_1]
+	K_p_2 = [I.index((p,node_2)) for p in predecessors_2]
+	edges[K_s_1,0] = node_2
+	edges[K_s_2,0] = node_1
+	edges[K_p_1,1] = node_2
+	edges[K_p_2,1] = node_1
+	tmp = Qabs[node_1,:,:]
+	Qabs[node_1,:,:] = Qabs[node_2,:,:]
+	Qabs[node_2,:,:] = tmp
+
+	G,_=  make_graphs(edges)
+
+	return G, edges, Qabs
+
+
+
+def make_graphs(edges):	
+	vals = np.ones(edges.shape[0], dtype=np.double)
+	rows = (np.asarray(edges[:,0])).astype(int)
+	cols = (np.asarray(edges[:,1])).astype(int)
+	set_edges = set(edges[:,0])
+	set_edges.update(edges[:,1])
+	N = len(set_edges)
+	GG = np.zeros((N,N))
+	GG[rows, cols] = vals
+
+
+	C = nx.from_numpy_matrix(GG)
+	G = nx.from_numpy_matrix(GG, create_using=nx.DiGraph())
+	return G,C
 
 
 def data_loader_artsquad( data_path,name, dtype,device):

@@ -39,29 +39,30 @@ prior : 'gaussian'
 particles_type : 'quaternion'
 product_particles : 1
 with_couplings : False
-weights_factor : .1
+weights_factor : .01
 true_bernoulli_noise : -1.0
 eval_loss : 'sinkhorn'
 N : 10
 log_name : test_synthetic
 log_dir : /nfs/data/michaela/projects/OptSync
 batch_size : 10000
-num_true_particles : 4
+num_true_particles : 3
 with_weights : 1
 
 completeness : 0.2
 loss : sinkhorn
 optimizer : SGD
 kernel_cost : power_quaternion
-power : 2.
-num_particles : 20
-true_rm_noise_level : 0
+power : 1.2
+num_particles : 15
+true_rm_noise_level : 0.0
 lr : 0.1
+seed : 10
 
 true_product_particles : 1
 
-decay_lr : 1000000000
-SH_eps : 0.1
+decay_lr : 10000
+SH_eps : 0.0001
 #SH_max_iter : 200
 
 
