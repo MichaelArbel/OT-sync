@@ -32,33 +32,9 @@ class Trainer(object):
 		elif args.device==-2:
 			self.device = 'cpu'
 		self.dtype = get_dtype(args)
-		if args.product_particles==1:
-			rmp_map = '_RM_product'
-		else:
-			rmp_map = '_RM_joint'
-		if args.with_weights:
-			weights = '_with_weights'
-		else:
-			weights = '_no_weights'
-		if args.unfaithfulness:
-			unfaithfulness = 'true'
-		else:
-			unfaithfulness = 'false'
-		if args.true_product_particles:
-			true_prod = 'prod_true'
-		else:
-			true_prod = 'prod_false'
-
-		model_name = args.model  + '_' +  true_prod + '_N_' +str(args.num_true_particles) + '_noise_' +str(args.true_rm_noise_level)+'_B_noise_' + str(args.true_bernoulli_noise) + '_unfaithfulness_' + str(unfaithfulness)
-		method_name =  'Np_' +str(args.num_particles) + '_opt_'+args.optimizer+ '_pow_' + str(args.power) + '_loss_' + args.loss + '_kernel_' + args.kernel_cost+ weights + rmp_map
-		self.log_dir = os.path.join(args.log_dir, args.log_name,  model_name , method_name, str(args.run_id))
-
-		if not os.path.isdir(self.log_dir):
-			from pathlib import Path
-			path   = Path(self.log_dir)
-			path.mkdir(parents=True, exist_ok=True)
-			#os.mkdir(self.log_dir)
 		
+		self.log_dir = make_log_dir(args)
+
 		if args.log_in_file:
 			self.log_file = open(os.path.join(self.log_dir, 'log.txt'), 'w', buffering=1)
 			sys.stdout = self.log_file
@@ -268,7 +244,7 @@ class Trainer(object):
 
 		#self.particles.data.data = 1.* self.true_particles
 		
-		self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.001)
+		#self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.001)
 		#mask = self.particles.data<0
 		#self.particles.data.data[mask]*=-1.
 		end = time.time()
@@ -333,7 +309,7 @@ class Trainer(object):
 
 		#self.particles.data.data = 1.* self.true_particles
 		
-		self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.01)
+		self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.1)
 		#mask = self.particles.data<0
 		#self.particles.data.data[mask]*=-1.
 		end = time.time()
@@ -467,17 +443,25 @@ class Trainer(object):
 			w = self.particles.weights()
 		out['eval_RM_dist'] =   self.mini_batch_iter_eval_loss()
 		out['weights'] = w.cpu().detach().numpy()
-
 		#if self.args.model =='synthetic':
 		out['eval_dist'] =   self.eval_loss_abs(self.true_particles, self.true_weights).item()
-		
+		out['avg_min_dist'],out['median_min_dist'] = self.best_dist() 
 	
 			
 		print('Sinkhorn distance 	absolute poses '+ str(out['eval_dist']))
 		print('Sinkhorn distance 	relative poses '+ str(out['eval_RM_dist']))
+		print('Min distance 		absolute poses '+ str(out['avg_min_dist']))
+		print('Median distance 		absolute poses '+ str(out['median_min_dist']))
 
 		return out
+	def best_dist(self):
+		dist = utils.quaternion_geodesic_distance(self.true_particles,self.particles.data)
+		min_dist,_ = torch.min(dist,dim=-1)
+		avg_best_dist = torch.mean(min_dist,dim=-1)
 
+		median_best_dist = np.median(avg_best_dist[1:].detach().cpu().numpy())
+		avg_best_dist = torch.mean(avg_best_dist[1:]).item()
+		return avg_best_dist,median_best_dist
 
 def get_kernel(args,dtype, device):
 
@@ -618,4 +602,37 @@ def make_true_dict(args):
 	true_args = Struct(**true_args)
 	return true_args
 
+def make_log_dir(args):
+	if args.config_method:
+		config_name = args.config_method.split('configs/')[1].split('.yaml')[0]
+		log_dir = os.path.join(args.log_dir,args.log_name, config_name )
+	else:
+		if args.product_particles==1:
+			rmp_map = '_RM_product'
+		else:
+			rmp_map = '_RM_joint'
+		if args.with_weights:
+			weights = '_with_weights'
+		else:
+			weights = '_no_weights'
+		if args.unfaithfulness:
+			unfaithfulness = 'true'
+		else:
+			unfaithfulness = 'false'
+		if args.true_product_particles:
+			true_prod = 'prod_true'
+		else:
+			true_prod = 'prod_false'
+
+		model_name = args.model  + '_' +  true_prod + '_N_' +str(args.num_true_particles) + '_noise_' +str(args.true_rm_noise_level)+'_B_noise_' + str(args.true_bernoulli_noise) + '_unfaithfulness_' + str(unfaithfulness)
+		method_name =  'Np_' +str(args.num_particles) + '_opt_'+args.optimizer+ '_pow_' + str(args.power) + '_loss_' + args.loss + '_kernel_' + args.kernel_cost+ weights + rmp_map
+		log_dir = os.path.join(args.log_dir, args.log_name,  model_name , method_name, str(args.run_id))
+
+	if not os.path.isdir(log_dir):
+		from pathlib import Path
+		path   = Path(log_dir)
+		path.mkdir(parents=True, exist_ok=True)
+	return log_dir
+		#os.mkdir(self.log_dir)
+		
 

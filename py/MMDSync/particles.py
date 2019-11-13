@@ -219,9 +219,15 @@ class QuaternionRelativeMeasureMapWeights(RelativeMeasureMap):
 class QuaternionRelativeMeasureMapWeightsProduct(QuaternionRelativeMeasureMapWeights):
 	def __init__(self,edges,grad_type,noise_sampler=None,noise_level=-1.,bernoulli_noise=-1., unfaithfulness=False):
 		super(QuaternionRelativeMeasureMapWeightsProduct,self).__init__(edges,grad_type,noise_sampler=noise_sampler,noise_level=noise_level,bernoulli_noise=bernoulli_noise, unfaithfulness=unfaithfulness)
+		self.test=False
+	def forward(self,particles, weights,edges):
+		#ratios  = utils.quaternion_prod(xi,xj)
+		#normalize = tr.norm(ratios,dim=-1).clone().detach()
+		#ratios  = ratios/normalize.unsqueeze(-1)
+		ratios,RM_weights,ratios_0 = self.compute_ratios(particles,weights,edges)
 
 
-	def compute_ratios(self,particles,weights,edges):
+	def forward(self,particles,weights,edges):
 
 		ratios = []
 		RM_weights = []
@@ -236,17 +242,17 @@ class QuaternionRelativeMeasureMapWeightsProduct(QuaternionRelativeMeasureMapWei
 		#xj = xj/tr.norm(xj,dim=-1).unsqueeze(-1)
 
 		if self.grad_type=='euclidean':
-			ratios = utils.forward_quaternion_X_times_Y_inv_prod(xi,xj)
+			ratios_0 = utils.forward_quaternion_X_times_Y_inv_prod(xi,xj)
 		elif self.grad_type=='quaternion':
-			ratios = utils.quaternion_X_times_Y_inv_prod(xi,xj)
-
-		ratios = ratios.permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
+			ratios_0 = utils.quaternion_X_times_Y_inv_prod(xi,xj)
+		ratios = ratios_0.permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
 		RM_weights = tr.einsum('nk,nl->nkl', weights[i,:],weights[j,:]).reshape([N,-1])
 		#RM_weights = weights
 
 		#ratios = particles
 		#RM_weights = weights
-
+		if self.test:
+			return ratios,RM_weights,ratios_0,xi,xj
 		return ratios,RM_weights
 
 
@@ -311,7 +317,7 @@ class QuaternionRelativeMeasureMapWeightsProductPrior(QuaternionRelativeMeasureM
 		w = tr.einsum('nk,nlk->nl',weights,mask_i)
 		return x,w,mask_i_0
 
-	def add_noise(self):
+	def add_noise(self,ratios):
 		noisy_ratios = add_noise_quaternion(self.noise_sampler,ratios,self.noise_level)
 		if self.bernoulli_noise>0.:
 			N,num_particles, _ = ratios.shape

@@ -184,10 +184,36 @@ class Sinkhorn_weighted(nn.Module):
 		self.loss = get_loss(kernel,eps)
 		self.diameter = 10.
 		self.scaling = 0.5
+		self.x = None
+		self.weights_x = None
+		self.test = True
 	def forward(self, true_data,true_weights,edges):
 		# The Sinkhorn algorithm takes as input three variables :
+		
 		x, weights_x = self.rm_map(self.particles.data,self.particles.weights(),edges)
+		
+		self.x = x
+		self.weights_x = weights_x
 		out = torch.sum(self.loss(true_weights,true_data,weights_x,x))
+
+		# if self.test:
+		# 	N = x.shape[0]
+		# 	aa  = - 0.01 * autograd.grad(outputs=out, inputs=[self.particles.data],grad_outputs=[tr.tensor(1., dtype=x.dtype, device=x.device)], create_graph=True, only_inputs=True, retain_graph=True)[0]
+		# 	#aa = aa.permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
+		# 	#ratios_0 = ratios_0.permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
+		# 	#new_weights_x = utils.sphere_exp_map(self.particles._weights,aa)
+		# 	new_x = utils.quaternion_exp_map(self.particles.data,aa)
+		# 	#ratios = utils.quaternion_X_times_Y_inv_prod(xi,new_x)
+		# 	#new_x = ratios.permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
+		# 	#new_x = new_x.permute([0,3,1,2]).reshape([N,4,-1]).permute([0,2,1])
+		# 	new_x, _= self.rm_map(new_x,weights,edges)
+		# 	new_out = torch.sum(self.loss(true_weights,true_data,weights_x,new_x))
+		# 	err = new_out - out
+		# 	err = err.item()
+		# 	if err>0:
+		# 		print( 'non decreasing loss: '+ str(err))
+
+
 		return out
 		#return sinkhorn_wasserstein_fisher_rao_2(out,x,weights_x)
 		  
