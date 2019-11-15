@@ -29,13 +29,13 @@ loss : 'sinkhorn'
 
 kernel_cost : 'power_quaternion'
 with_weights : 1
-product_particles : 0q
+product_particles : 1
 num_particles : 10
 power : 1.2
 with_couplings : False
 weights_factor : .1
 conjugate : True
-GT_mode : True
+GT_mode : False
 err_tol : 0.0001 
 #weights_factor: 1.
 
