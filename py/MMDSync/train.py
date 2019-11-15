@@ -93,6 +93,9 @@ parser.add_argument('--weight_penalty',  default = 0.,type= int,    help=' weigh
 parser.add_argument('--with_edges_splits', action='store_true',   help=' scpecify optimizer ')
 parser.add_argument('--batch_size',default = 10,type= int,  help=' size of the batch ')
 parser.add_argument('--multi_gpu',action='store_true',  help=' use multi-gpu? ')
+parser.add_argument('--conjugate',action='store_true',  help=' use multi-gpu? ')
+parser.add_argument('--GT_mode',action='store_true',  help=' use multi-gpu? ')
+parser.add_argument('--err_tol',  default = 0.0001,type= float,   help=' scpecify optimizer ')
 
 
 

@@ -196,45 +196,47 @@ def get_res(path_dict,refresh=False):
 
 def stack_all_res(res_dicts):
 	out_dict = {}
-	values = ['eval_RM_dist','eval_dist','loss','iteration','time','avg_min_dist','median_min_dist']
+	values = ['eval_RM_dist','eval_dist','loss','iteration','time','avg_min_dist','median_min_dist','mode_weights']
 	for value in values:
 		tmp = [res_dict[value] for res_dict in res_dicts]
 		out_dict[value] = np.stack(tmp,axis = 0)
-	return out_dict
-
-def stack_all_res(res_dicts):
-
-	out_dict = {}
-	values = ['eval_RM_dist','eval_dist','loss','iteration','time']
-	for value in values:
-		tmp = [res_dict[value] for res_dict in res_dicts]
-		out_dict[value] = np.stack(tmp,axis = 0)
-	values = ['avg_min_dist','median_min_dist']
-	try:
-		for value in values:
-			tmp = [res_dict[value] for res_dict in res_dicts]
-			out_dict[value] = np.stack(tmp,axis = 0)
-	except:
-		#import pdb
-		#pdb.set_trace()
-		Num_iter = len(res_dicts)
-		GT_quaternions = tr.from_numpy(res_dicts[0]['true_particles'][1:,:,:])
-		avg_min_dist = []
-		median_min_dist = []
-		for res_dict in res_dicts:
-			#out_dict = get_all_particles(res_path,iteration)
-			quaternions = tr.from_numpy(res_dict['particles'][1:,:,:])
-			dist = utils.quaternion_geodesic_distance(GT_quaternions,quaternions)
-			min_dist,_ = tr.min(dist,dim=-1)
-			avg_best_dist = tr.mean(min_dist,dim=-1)
-
-			median_min_dist.append( np.median(avg_best_dist[1:].detach().cpu().numpy()))
-			avg_min_dist.append(tr.mean(avg_best_dist[1:]).item())
-
-		out_dict['median_min_dist'] = np.stack(median_min_dist,axis = 0)
-		out_dict['avg_min_dist'] = np.stack(avg_min_dist,axis = 0)
 
 	return out_dict
+
+# def stack_all_res(res_dicts):
+
+# 	out_dict = {}
+# 	values = ['eval_RM_dist','eval_dist','loss','iteration','time']
+# 	for value in values:
+# 		tmp = [res_dict[value] for res_dict in res_dicts]
+# 		out_dict[value] = np.stack(tmp,axis = 0)
+# 	values = ['avg_min_dist','median_min_dist','mode_weights']
+# 	try:
+# 		for value in values:
+# 			tmp = [res_dict[value] for res_dict in res_dicts]
+# 			out_dict[value] = np.stack(tmp,axis = 0)
+# 	except:
+# 		#import pdb
+# 		#pdb.set_trace()
+# 		Num_iter = len(res_dicts)
+# 		GT_quaternions = tr.from_numpy(res_dicts[0]['true_particles'][1:,:,:])
+# 		avg_min_dist = []
+# 		median_min_dist = []
+# 		for res_dict in res_dicts:
+# 			#out_dict = get_all_particles(res_path,iteration)
+# 			quaternions = tr.from_numpy(res_dict['particles'][1:,:,:])
+# 			dist = utils.quaternion_geodesic_distance(GT_quaternions,quaternions)
+# 			min_dist,_ = tr.min(dist,dim=-1)
+# 			avg_best_dist = tr.mean(min_dist,dim=-1)
+
+# 			median_min_dist.append( np.median(avg_best_dist[1:].detach().cpu().numpy()))
+# 			avg_min_dist.append(tr.mean(avg_best_dist[1:]).item())
+
+# 		out_dict['median_min_dist'] = np.stack(median_min_dist,axis = 0)
+# 		out_dict['avg_min_dist'] = np.stack(avg_min_dist,axis = 0)
+# 		out_dict['mode_weights'] = np.stack(avg_min_dist,axis = 0)
+
+# 	return out_dict
 
 
 def make_res(value):
