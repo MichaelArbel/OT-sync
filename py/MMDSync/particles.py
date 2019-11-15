@@ -326,6 +326,16 @@ class QuaternionRelativeMeasureMapWeightsProductPrior(QuaternionRelativeMeasureM
 			return ratios
 		else:
 			return noisy_ratios
+	def add_unfaithfulness(self,ratios,RM_weights):
+		N,num_particles, _ = ratios.shape
+		mask_int =tr.multinomial(RM_weights[0,:],N, replacement=True)
+		mask = tr.nn.functional.one_hot(mask_int,num_particles).to(ratios.device)
+		mask = mask.type(ratios.dtype)
+
+		ratios = tr.einsum('nki,nk->ni',ratios,mask).unsqueeze(1)
+		RM_weights = tr.ones([N,1],dtype=ratios.dtype, device=ratios.device)
+		#mask = tr.bernoulli(self.bernoulli_noise*tr.ones([N,num_particles], dtype=ratios.dtype, device=ratios.device))
+		return ratios,RM_weights
 
 class QuaternionRelativeMeasureMapWeightsCouplings(QuaternionRelativeMeasureMapWeights):
 	def __init__(self,edges,grad_type,noise_sampler=None,noise_level=-1.,bernoulli_noise=-1., unfaithfulness=False):
