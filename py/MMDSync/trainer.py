@@ -91,6 +91,10 @@ class Trainer(object):
 		elif self.args.model=='real_data' and self.args.data_name=='artsquad':
 			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx = dl.data_loader_artsquad(self.args.data_path, self.args.data_name, self.dtype,self.device)
 			self.args.N = len(self.true_particles)
+		
+		elif self.args.model=='real_data' and self.args.data_name=='marker':
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx = dl.data_loader_multiparticles(self.args.data_path, self.args.data_name, self.dtype,self.device)
+			self.args.N = len(self.true_particles)
 		else:
 			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles, self.true_weights, self.eval_idx = dl.data_loader_notredame(
 			self.args.data_path, self.args.data_name, self.dtype, self.device)
@@ -164,7 +168,7 @@ class Trainer(object):
 		start_time = time.time()
 		best_valid_loss = np.inf
 		with_config = True
-		self.initialize()
+		#self.initialize()
 		for iteration in range(self.args.total_iters):
 			#scheduler.step()
 			loss = self.train_iter(iteration)
@@ -252,68 +256,7 @@ class Trainer(object):
 
 
 
-	def initialize(self):
-		print('initiallizing particles')
-		start = time.time()
-		num_iters = 10
-		K = self.edges.shape[0]
-		M = self.true_RM.shape[1]
-		N = self.particles.data.shape[0]
-		d = self.particles.data.shape[2]
-		cpu_true_RM = self.true_RM
-		init_particles = torch.zeros([N,M,d], dtype=self.true_RM.dtype, device = cpu_true_RM.device)
-		
-		
-		I = [tuple(l) for l in self.edges]
-		#I = list(self.G.edges())
-		N = len(self.G.nodes())
 
-		init_particles[0,:,0] = 1.
-		j = 0
-		done_set = set([])
-		cur_set = set([0])
-		done  = False
-
-		while not done:
-			cur_node = cur_set.pop()			
-			successors = set([n for n in self.G.successors(cur_node)])
-			predecessors = set([n for n in self.G.predecessors(cur_node)])
-			predecessors = predecessors.difference(done_set)
-			predecessors = predecessors.difference(cur_set)
-			successors = successors.difference(done_set)
-			successors = successors.difference(cur_set)
-			suc = list(successors)
-			K = [I.index((cur_node,s)) for s in suc]
-			cp = 1.*cpu_true_RM[K,:,:]
-			cp[:,:,1:]*=-1
-			if len(K)>0:
-				init_particles[suc,:,:] = utils.quaternion_prod(cp, init_particles[cur_node,:,:].unsqueeze(0).repeat(len(K),1,1))
-			pre = list(predecessors)
-			K = [I.index((p,cur_node)) for p in pre]
-			if len(K)>0:
-				init_particles[pre,:,:] = utils.quaternion_prod(cpu_true_RM[K,:,:],init_particles[cur_node,:,:].unsqueeze(0).repeat(len(K),1,1))
-			mask = init_particles[:,:,0]<0
-			init_particles[mask]*=-1
-			cur_set.update(successors)
-			cur_set.update(predecessors)
-
-			done_set.update([cur_node])
-			
-			#print('curset: '+str(len(cur_set)) +  ', done_set: '+str(len(done_set)) )
-			done = (len(done_set)==N)
-		N,num_particles, _ = self.particles.data.shape
-		mask_int =torch.multinomial(self.true_RM_weights[0,:],num_particles, replacement=True)
-		init_particles = init_particles.to(self.true_RM.device)
-		self.particles.data.data = init_particles[:,mask_int,:]
-		#self.particles.data.data = self.true_particles[:,mask_int,:]
-
-		#self.particles.data.data = 1.* self.true_particles
-		
-		self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.1)
-		#mask = self.particles.data<0
-		#self.particles.data.data[mask]*=-1.
-		end = time.time()
-		print('assigned value in '+str(end-start) + 's')
 	def train_iter(self, iteration):
 		start = time.time()
 		self.particles.zero_grad()

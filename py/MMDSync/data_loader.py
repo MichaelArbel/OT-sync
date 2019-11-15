@@ -148,3 +148,76 @@ def data_loader_artsquad( data_path,name, dtype,device):
 
 
 
+
+
+
+def data_loader_multiparticles( data_path,name, dtype,device):
+
+	edges_path = os.path.join(data_path,name+'_Edges.txt')
+	edges = np.genfromtxt(edges_path, delimiter=' ')
+	edges = (np.array(edges)-1).astype('int64')
+
+	Qabs_path = os.path.join(data_path,name+'_Qabs.txt')
+	Qabs = np.genfromtxt(Qabs_path, delimiter=' ')
+
+	Qrel_path = os.path.join(data_path,name+'_Qrel.txt')
+	Qrel = np.genfromtxt(Qrel_path, delimiter=' ')
+
+	Qrel = tr.tensor(Qrel, dtype=dtype,device=device).unsqueeze(1)    # do not assigne to gpu for now (this matrix can be huge)
+	Qabs =  tr.tensor(Qabs, dtype=dtype, device=device).unsqueeze(1)
+	Qabs[:,:,1:]*=-1.
+
+
+	G,C = make_graphs(edges)
+
+
+
+	#I = np.array(list(G.edges()))
+	degree = np.array((G.degree()))
+	max_index = np.argmax(degree[:,1])
+
+	G, edges, Qabs = swap_nodes(G,edges,Qabs,0,max_index)
+
+	Qrel = reshape_flat_tensor(Qrel)
+
+	# Additional formatting  : N x P x d 
+	N,P,_ = Qabs.shape
+	Nrel, Prel, _ = Qrel.shape
+	# rotate all absolute poses so that the first camera becomes the reference
+	Qabs = utils.quaternion_X_times_Y_inv(Qabs,Qabs[0,:,:].unsqueeze(0).repeat(N,1,1))
+	wabs = (1./P) * tr.ones([N, P], dtype=dtype, device = device )
+	wrel = (1./Prel) * tr.ones([Nrel, Prel], dtype=dtype, device = device )
+	
+
+	# reshaping Qrel
+	
+
+	if nx.is_connected(C):
+		return edges, G, Qrel, wrel, Qabs, wabs,None
+
+
+
+
+def reshape_flat_tensor(Qrel):
+	N,_,M = Qrel.shape
+	assert np.mod(M,4)==0
+	out = tr.zeros([N,int(M/4),4], dtype=Qrel.dtype,device=Qrel.device)
+	for i in range(int(M/4)):
+		for j in range(4):
+			out[:,i,j] =Qrel[:,0,j*(int(M/4)) +  i]
+	return out
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

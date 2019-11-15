@@ -63,6 +63,7 @@ true_product_particles : 1
 
 decay_lr : 10000
 SH_eps : 0.0001
+unfaithfulness : True
 #SH_max_iter : 200
 
 
