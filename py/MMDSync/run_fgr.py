@@ -15,9 +15,9 @@ def prepare_dataset2(fileName1, fileName2, voxel_size):
     target = o3d.geometry.PointCloud()
     source.points = o3d.io.read_triangle_mesh(fileName1).vertices
     target.points = o3d.io.read_triangle_mesh(fileName2).vertices
-    trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
-                             [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
-    source.transform(trans_init)
+    #trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
+     #                        [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
+    #source.transform(trans_init)
     #draw_registration_result(source, target, np.identity(4))
 
     source_down, source_fpfh = preprocess_point_cloud(source, voxel_size)
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     fileName1 = sys.argv[1]
     fileName2 = sys.argv[2]
     outputPose = sys.argv[3]
-    voxel_size = 0.01  # means 5cm for the dataset
+    voxel_size = 25  # means 5cm for the dataset
     source, target, source_down, target_down, source_fpfh, target_fpfh = \
             prepare_dataset2(fileName1, fileName2, voxel_size)
 

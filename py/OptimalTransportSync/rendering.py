@@ -90,6 +90,18 @@ def get_vector(image_name):
     # 8. Return the feature vector
     return my_embedding.squeeze()
 
+def toRotation(R):
+    U, s, Vt = np.linalg.svd(R, full_matrices=False)
+    V = Vt.T
+    R = np.dot(V, U.T)
+
+    if np.linalg.det(R) < 0:  # does the current solution use a reflection?
+        V[:, -1] *= -1
+        s[-1] *= -1
+        R = np.dot(V, U.T)
+    R = R.T
+    return R
+
 # build the feature tree
 i=0
 X=np.zeros((0,512))
@@ -128,12 +140,14 @@ while (i<maxImages):
     i = i + 1
 
 kdtree = NearestNeighbors(n_neighbors=8, algorithm='ball_tree').fit(X)
-K = 8
+K = 12
+
+#Edges = np.stack(qlist, axis=0)
 
 # render the spheres
-
-i = 54
-ie = i+10
+quality=150
+i = 8
+ie = i+1
 plt.figure()
 plt.axis('off')
 while (i < ie):
@@ -147,7 +161,7 @@ while (i < ie):
     print(distances)
 
     qlist = []
-    for j in range(0, 9, 1):
+    for j in range(0, K, 1):
         ind = indices[0][j]
         if (distances[0][j] >5):
             continue
@@ -162,15 +176,16 @@ while (i < ie):
 
     qlistNp = np.stack(qlist, axis=0)
     distributions = matlab.double(np.array(qlistNp).tolist())
-    bingham = db.get_bingham(eng, distributions, GT=None, precision=quality) / 255.  # without ground truth
+    #bingham = db.get_bingham(eng, distributions, GT=None, precision=quality)   # without ground truth
+    #cv2.imwrite("D:/Data/"+str(i)+".png", bingham)
     #cv2.imshow('bingham', cv2.hconcat([bingham, bingham]))
     #cv2.waitKey(0)
 
     i=i+1
     continue
 
-i = 28
-ie = i+1
+i = 0
+ie = 72
 plt.figure()
 plt.axis('off')
 while (i < ie):
@@ -183,7 +198,8 @@ while (i < ie):
     [distances, indices] = kdtree.kneighbors([f], K+1, return_distance=True)
     print(distances)
 
-    for j in range(0, 9, 1):
+    qlist = []
+    for j in range(1, K, 1):
         ind = indices[0][j]
         if (distances[0][j] >5):
             continue
@@ -196,6 +212,9 @@ while (i < ie):
         Tj = np.append(np.append(Rj, tj, 1), [[0,0,0,1]], axis=0)
 
         Tij = Ti*np.linalg.inv(Tj)
+        Rij = toRotation(Ri*np.transpose(Rj))
+        qij = Quaternion(matrix=Rij)
+        qlist.append(np.transpose(qij.elements))
 
         scene = pyrender.Scene()
         scene.add(mesh)
@@ -207,9 +226,12 @@ while (i < ie):
         r = pyrender.OffscreenRenderer(800, 600)
         color, depth = r.render(scene)
 
+        cv2.imwrite("D:/Data/color_" + str(i) + ".png", color)
+
         plt.imshow(color)
         plt.draw()
         plt.show(block=True)
+
 
         #scene.remove_node(nodeLight)
         scene.remove_node(node)
