@@ -151,7 +151,7 @@ def data_loader_artsquad( data_path,name, dtype,device):
 
 
 
-def data_loader_multiparticles( data_path,name, dtype,device):
+def data_loader_multiparticles( data_path,name, dtype,device, conjugate=False):
 
 	edges_path = os.path.join(data_path,name+'_Edges.txt')
 	edges = np.genfromtxt(edges_path, delimiter=' ')
@@ -165,12 +165,18 @@ def data_loader_multiparticles( data_path,name, dtype,device):
 
 	Qrel = tr.tensor(Qrel, dtype=dtype,device=device).unsqueeze(1)    # do not assigne to gpu for now (this matrix can be huge)
 	Qabs =  tr.tensor(Qabs, dtype=dtype, device=device).unsqueeze(1)
-	Qabs[:,:,1:]*=-1.
+	if conjugate:	
+		Qabs[:,:,1:]*=-1.
 
 
 	G,C = make_graphs(edges)
 
+	connected_comp = list(nx.connected_components(C))
+	#H = G.subgraph(connected_comp[0])
+	#Qabs = Qabs[connected_comp[0],:,:]
 
+	connected_comp =  list(connected_comp[0])
+	Qabs = Qabs[connected_comp,:,:] 
 
 	#I = np.array(list(G.edges()))
 	degree = np.array((G.degree()))
@@ -185,6 +191,13 @@ def data_loader_multiparticles( data_path,name, dtype,device):
 	Nrel, Prel, _ = Qrel.shape
 	# rotate all absolute poses so that the first camera becomes the reference
 	Qabs = utils.quaternion_X_times_Y_inv(Qabs,Qabs[0,:,:].unsqueeze(0).repeat(N,1,1))
+	
+	mask = Qabs[:,:,0]<0
+	Qabs[mask]*=-1.
+
+	mask = Qrel[:,:,0]<0
+	Qrel[mask]*=-1.
+
 	wabs = (1./P) * tr.ones([N, P], dtype=dtype, device = device )
 	wrel = (1./Prel) * tr.ones([Nrel, Prel], dtype=dtype, device = device )
 	

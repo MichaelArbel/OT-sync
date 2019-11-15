@@ -93,7 +93,7 @@ class Trainer(object):
 			self.args.N = len(self.true_particles)
 		
 		elif self.args.model=='real_data' and self.args.data_name=='marker':
-			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx = dl.data_loader_multiparticles(self.args.data_path, self.args.data_name, self.dtype,self.device)
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx = dl.data_loader_multiparticles(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
 			self.args.N = len(self.true_particles)
 		else:
 			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles, self.true_weights, self.eval_idx = dl.data_loader_notredame(
@@ -168,7 +168,7 @@ class Trainer(object):
 		start_time = time.time()
 		best_valid_loss = np.inf
 		with_config = True
-		#self.initialize()
+		self.initialize()
 		for iteration in range(self.args.total_iters):
 			#scheduler.step()
 			loss = self.train_iter(iteration)
@@ -221,6 +221,7 @@ class Trainer(object):
 			predecessors = predecessors.difference(cur_set)
 			successors = successors.difference(done_set)
 			successors = successors.difference(cur_set)
+			predecessors = predecessors.difference(successors)
 			suc = list(successors)
 			K = [I.index((cur_node,s)) for s in suc]
 			cp = 1.*cpu_true_RM[K,:,:]
