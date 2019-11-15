@@ -16,6 +16,8 @@ import optimizers
 from kernel.gaussian import Gaussian,ExpQuaternionGeodesicDist,ExpPowerQuaternionGeodesicDist
 import pickle
 import data_loader as dl
+import torch as tr
+
 
 torch.backends.cudnn.benchmark=True
 torch.manual_seed(0)
@@ -93,14 +95,35 @@ class Trainer(object):
 			self.args.N = len(self.true_particles)
 		
 		elif self.args.model=='real_data' and self.args.data_name=='marker':
-			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx = dl.data_loader_multiparticles(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx =dl.data_loader_marker(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
 			self.args.N = len(self.true_particles)
+
+		elif self.args.model=='real_data' and self.args.data_name=='shapenet':
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx =dl.data_loader_shapenet(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
+			self.args.N = len(self.true_particles)
+			true_args = make_true_dict(self.args)
+
 		else:
-			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles, self.true_weights, self.eval_idx = dl.data_loader_notredame(
-			self.args.data_path, self.args.data_name, self.dtype, self.device)
-			self.args.N = len(self.true_particles)
+			raise NotImplementedError()
 			#self.true_weights = (1./true_args.num_particles)*torch.ones([true_args.N, true_args.num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
-			
+		self._GT_RM,avg_best_dist = self.make_gt_rm()
+		if self.args.GT_mode:
+			self.true_RM[:,0,:] = self._GT_RM[:,0,:]
+
+
+		print('avg noise in the relative poses: ' + str(avg_best_dist) )
+
+	def make_gt_rm(self):
+
+		true_args = make_true_dict(self.args)
+		true_prior = get_prior(true_args, self.dtype, self.device)
+		true_RM_map = get_true_rm_map(true_args, self.edges, self.dtype, self.device)
+		rm, rm_weights = true_RM_map(self.true_particles,  self.true_weights ,self.edges)
+		dist = utils.quaternion_geodesic_distance(rm,self.true_RM)
+		min_dist, min_dist_idx = torch.min(dist,dim=-1)
+		avg_best_dist = torch.mean(min_dist).item()
+		return rm, avg_best_dist
+
 	def split_edges(self):
 		
 		num_splits = int(self.edges.shape[0]/self.args.batch_size)
@@ -249,7 +272,7 @@ class Trainer(object):
 
 		#self.particles.data.data = 1.* self.true_particles
 		
-		#self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.001)
+		#self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.01)
 		#mask = self.particles.data<0
 		#self.particles.data.data[mask]*=-1.
 		end = time.time()
@@ -389,23 +412,47 @@ class Trainer(object):
 		out['weights'] = w.cpu().detach().numpy()
 		#if self.args.model =='synthetic':
 		out['eval_dist'] =   self.eval_loss_abs(self.true_particles, self.true_weights).item()
-		out['avg_min_dist'],out['median_min_dist'] = self.best_dist() 
-	
+		out['avg_min_dist'],out['median_min_dist'],out['mode_weights'] = self.best_dist() 
 			
 		print('Sinkhorn distance 	absolute poses '+ str(out['eval_dist']))
 		print('Sinkhorn distance 	relative poses '+ str(out['eval_RM_dist']))
 		print('Min distance 		absolute poses '+ str(out['avg_min_dist']))
+		print('Weight mode 		absolute poses '+ str(out['mode_weights']))
+
 		print('Median distance 		absolute poses '+ str(out['median_min_dist']))
 
 		return out
 	def best_dist(self):
 		dist = utils.quaternion_geodesic_distance(self.true_particles,self.particles.data)
-		min_dist,_ = torch.min(dist,dim=-1)
-		avg_best_dist = torch.mean(min_dist,dim=-1)
+		if self.args.product_particles:
+			N_GT = self.true_particles.shape[1]
+			min_dist,_ = torch.min(dist,dim=-1)
+			error = tr.abs(dist-min_dist.unsqueeze(-1))
+			mask =  1.*(error < self.args.err_tol) 
+			weights_mode = self.particles.weights().unsqueeze(1).repeat(1,N_GT,1)*mask.double()
+			
+			weights_mode =tr.sum(weights_mode,dim=-1)
+			weights_mode = tr.mean(weights_mode[1:]).item()
+			avg_best_dist = torch.mean(min_dist,dim=-1)
+			median_best_dist = np.median(avg_best_dist[1:].detach().cpu().numpy())
+			avg_best_dist = torch.mean(avg_best_dist[1:]).item()
 
-		median_best_dist = np.median(avg_best_dist[1:].detach().cpu().numpy())
-		avg_best_dist = torch.mean(avg_best_dist[1:]).item()
-		return avg_best_dist,median_best_dist
+		else:
+			N_GT = self.true_particles.shape[1]
+			avg_best_dist = torch.mean(dist[1:,:,:],dim=0)
+			min_dist,idx = torch.min(avg_best_dist,dim=-1)
+			error = tr.abs(avg_best_dist-min_dist.unsqueeze(-1))
+			mask =  error < self.args.err_tol 
+			weights_mode = self.particles.weights()[0,:].unsqueeze(0).repeat(N_GT,1)
+			weights_mode = tr.mean(tr.sum(weights_mode[mask],dim=-1)).item()
+			avg_best_dist = tr.mean(min_dist).item()
+			#print('weight: '+ str(weights_mode))
+			#min_dist,_ = torch.min(avg_best_dist,dim=-1)
+			
+			median_best_dist =0.
+			#avg_best_dist = torch.mean(min_dist_ist)
+		
+		return avg_best_dist,median_best_dist,weights_mode
 
 def get_kernel(args,dtype, device):
 
@@ -579,4 +626,15 @@ def make_log_dir(args):
 	return log_dir
 		#os.mkdir(self.log_dir)
 		
+
+
+def reshape_flat_tensor(Qrel):
+	N,_,M = Qrel.shape
+	assert np.mod(M,4)==0
+	out = tr.zeros([N,int(M/4),4], dtype=Qrel.dtype,device=Qrel.device)
+	for i in range(int(M/4)):
+		for j in range(4):
+			out[:,i,j] =Qrel[:,0,j*(int(M/4)) +  i]
+	return out
+
 

@@ -12,7 +12,7 @@ batch_size : 70000
 with_edges_splits : True
 data_name : 'marker'
 data_path : '../data/'
-log_name : marker
+log_name : marker_no_prod_gt_mode_test
 lr : 0.01
 log_dir : /nfs/data/michaela/projects/OptSync
 
@@ -29,12 +29,14 @@ loss : 'sinkhorn'
 
 kernel_cost : 'power_quaternion'
 with_weights : 1
-product_particles : 1
+product_particles : 0q
 num_particles : 10
 power : 1.2
 with_couplings : False
 weights_factor : .1
 conjugate : True
+GT_mode : True
+err_tol : 0.0001 
 #weights_factor: 1.
 
 
