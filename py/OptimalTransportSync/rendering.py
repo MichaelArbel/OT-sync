@@ -140,17 +140,17 @@ while (i<maxImages):
     i = i + 1
 
 kdtree = NearestNeighbors(n_neighbors=8, algorithm='ball_tree').fit(X)
-K = 12
 
-#Edges = np.stack(qlist, axis=0)
-
+K = 4
+Edges=np.zeros((0,2))
+Qabs=np.zeros((0,4*K))
 # render the spheres
 quality=150
-i = 8
+i = 0
 ie = i+1
 plt.figure()
 plt.axis('off')
-while (i < ie):
+while (i < maxImages):
     f = X[i, :]
     qi = Q[i,:]
     ti = np.transpose([T[i, :]])
@@ -163,8 +163,8 @@ while (i < ie):
     qlist = []
     for j in range(0, K, 1):
         ind = indices[0][j]
-        if (distances[0][j] >5):
-            continue
+        #if (distances[0][j] >5):
+        #    continue
 
         print(ind)
         qj = Q[ind,:]
@@ -173,9 +173,12 @@ while (i < ie):
         qclose = [qj[0], qj[1], qj[2], qj[3]]
 
         qlist.append(np.transpose(qclose))
+        Edges = np.vstack((Edges, [i+1,ind+1]))
 
     qlistNp = np.stack(qlist, axis=0)
-    distributions = matlab.double(np.array(qlistNp).tolist())
+    Qabs = np.vstack((Qabs, qlistNp.flatten()))
+
+    #distributions = matlab.double(np.array(qlistNp).tolist())
     #bingham = db.get_bingham(eng, distributions, GT=None, precision=quality)   # without ground truth
     #cv2.imwrite("D:/Data/"+str(i)+".png", bingham)
     #cv2.imshow('bingham', cv2.hconcat([bingham, bingham]))
@@ -184,11 +187,26 @@ while (i < ie):
     i=i+1
     continue
 
+#Edges = np.stack(qlist, axis=0)
+fileName = "D:/Data/render/cup_QAbs.txt"
+with open(fileName, 'w') as filehandle:
+    for line in Qabs:
+        np.savetxt(filehandle, line[None], fmt='%g', delimiter=',')
+filehandle.close()
+
+fileName = "D:/Data/render/cup_Edges.txt"
+with open(fileName, 'w') as filehandle:
+    for line in Edges:
+        np.savetxt(filehandle, line[None], fmt='%g', delimiter=',')
+filehandle.close()
+
 i = 0
 ie = 72
 plt.figure()
 plt.axis('off')
-while (i < ie):
+fileName = "D:/Data/render/cup_Qrel.txt"
+filehandle = open(fileName, 'w')
+while (i < maxImages):
     f = X[i, :]
     qi = Q[i,:]
     ti = np.transpose([T[i, :]])
@@ -214,32 +232,34 @@ while (i < ie):
         Tij = Ti*np.linalg.inv(Tj)
         Rij = toRotation(Ri*np.transpose(Rj))
         qij = Quaternion(matrix=Rij)
-        qlist.append(np.transpose(qij.elements))
+        qlist.append((qij.elements))
 
-        scene = pyrender.Scene()
-        scene.add(mesh)
-
-        node = scene.add(camera, pose=Tj)
-
+        #scene = pyrender.Scene()
+        #scene.add(mesh)
+        #node = scene.add(camera, pose=Tj)
         #nodeLight = scene.add(light, pose=Tj)
-
-        r = pyrender.OffscreenRenderer(800, 600)
-        color, depth = r.render(scene)
-
-        cv2.imwrite("D:/Data/color_" + str(i) + ".png", color)
-
-        plt.imshow(color)
-        plt.draw()
-        plt.show(block=True)
-
-
+        #r = pyrender.OffscreenRenderer(800, 600)
+        #color, depth = r.render(scene)
+        #cv2.imwrite("D:/Data/color_" + str(i) + ".png", color)
+        #plt.imshow(color)
+        #plt.draw()
+        #plt.show(block=True)
         #scene.remove_node(nodeLight)
-        scene.remove_node(node)
+        #scene.remove_node(node)
 
     i=i+1
+
+
+    #with open(fileName, 'w') as filehandle:
+    for i, qarr in enumerate(qlist):
+        filehandle.write(', '.join(map(str, qarr)))
+        if (i<(len(qlist)-1)):
+            filehandle.write(', ')
+
     continue
 
-    fileName = "%s/%04d.pose" % ("D:/Data/render/views", i)
+
+    #fileName = "%s/%04d.pose" % ("D:/Data/render/views", i)
     camera_pose = np.loadtxt(fileName, dtype='f', delimiter=' ')
     camera_pose[0:3,1:3] = -1*camera_pose[0:3,1:3]
     
@@ -267,3 +287,5 @@ while (i < ie):
     scene.remove_node(node)
     
     i=i+1
+
+filehandle.close()

@@ -1,27 +1,40 @@
 
 folder = 'D:\Data\meas_sync\marker1';
 N = 10;
+% 
+% I = [];
+% fid = fopen([folder '/QRel.txt'], 'w');
+% fidEdges = fopen([folder '/Edges.txt'], 'w');
+% for i=1:N
+%     for j=1:N
+%         if (i~=j)
+%             fn = sprintf('%s/out/quat_%02d_%02d.txt', folder, i, j);
+%             
+%             if (exist(fn,'file'))
+%                 Q = load(fn);
+%                 I = [I; int32([i,j])];
+%                 
+%                 fprintf(fid, '%g %g %g %g\n', Q);
+%                 fprintf(fid, '\n');
+%                 fprintf(fidEdges, '%d %d\n', i, j);
+%             end
+%             
+%         end
+%     end
+% end
 
-I = [];
-fid = fopen([folder '/QRel.txt'], 'w');
-fidEdges = fopen([folder '/Edges.txt'], 'w');
-for i=1:N
-    for j=1:N
-        if (i~=j)
-            fn = sprintf('%s/out/quat_%02d_%02d.txt', folder, i, j);
-            
-            if (exist(fn,'file'))
-                Q = load(fn);
-                I = [I; int32([i,j])];
-                
-                fprintf(fid, '%g %g %g %g\n', Q);
-                fprintf(fid, '\n');
-                fprintf(fidEdges, '%d %d\n', i, j);
-            end
-            
-        end
+fnAbs = 'C:\Users\tolga\Box Sync\gitforks\OptimalTransportSync\py\data\marker_Qabs.txt';
+Q = load (fnAbs);
+for i=1:size(Q,1)
+    q = Q(i, :);
+    for j=1:4:length(q)
+        ind = j:j+3;
+        qc = q(ind);
+        qc = t_qconj(qc);
+        Q(i, ind) = qc;
     end
 end
+writematrix(Q, fnAbs, 'Delimiter', ' ');
 
 fclose(fid);
 fclose(fidEdges);
