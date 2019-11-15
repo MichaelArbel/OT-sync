@@ -1,5 +1,5 @@
 #### problem
-completeness : 0.1
+completeness : 1.0
 model : 'real_data'
 true_prior : 'gaussian'
 num_true_particles : 1
@@ -10,10 +10,10 @@ true_bernoulli_noise : -1.
 batch_size : 999999
 
 with_edges_splits : True
-data_name : 'FountainP11'
+data_name : 'ShapeNet'
 data_path : '../data/'
-log_name : FountainP11
-lr : 0.001
+log_name : ShapeNet
+lr : 0.01
 
 
 log_dir: 'D:/Data/OptSync'
@@ -22,19 +22,18 @@ particles_type : 'quaternion'
 optimizer : 'SGD'
 prior : 'gaussian'
 loss : 'sinkhorn'
+eval_loss : 'sinkhorn'
 
 
 # kernel_cost : 'power_quaternion'
 # with_weights : 1
 # product_particles : 1
-# num_particles : 20
-
-
+#num_particles : 4
 
 kernel_cost : 'power_quaternion'
 with_weights : 1
 product_particles : 1
-num_particles : 3
+num_particles : 1
 power : 1.5
 with_couplings : False
 weights_factor : .01
