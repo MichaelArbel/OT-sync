@@ -104,7 +104,9 @@ class Trainer(object):
 			true_args = make_true_dict(self.args)
 
 		else:
-			raise NotImplementedError()
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles, self.true_weights, self.eval_idx = dl.data_loader_notredame(
+			self.args.data_path, self.args.data_name, self.dtype, self.device)
+			self.args.N = len(self.true_particles)
 			#self.true_weights = (1./true_args.num_particles)*torch.ones([true_args.N, true_args.num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
 		self._GT_RM,avg_best_dist = self.make_gt_rm()
 		if self.args.GT_mode:
@@ -272,7 +274,7 @@ class Trainer(object):
 
 		#self.particles.data.data = 1.* self.true_particles
 		
-		#self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.01)
+		self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.01)
 		#mask = self.particles.data<0
 		#self.particles.data.data[mask]*=-1.
 		end = time.time()
