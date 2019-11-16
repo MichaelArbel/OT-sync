@@ -22,7 +22,7 @@ particles_type : 'quaternion'
 optimizer : 'SGD'
 prior : 'gaussian'
 loss : 'sinkhorn'
-eval_loss : 'kbest'
+eval_loss : 'sinkhorn'
 
 
 # kernel_cost : 'power_quaternion'
