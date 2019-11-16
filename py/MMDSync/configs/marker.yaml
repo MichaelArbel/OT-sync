@@ -12,8 +12,8 @@ batch_size : 70000
 with_edges_splits : True
 data_name : 'marker'
 data_path : '../data/'
-log_name : marker_no_prod_gt_mode_test
-lr : 0.01
+log_name : marker_no_prod_gt_mode_mmd
+lr : 0.001
 log_dir : /nfs/data/michaela/projects/OptSync
 
 dtype : '64'

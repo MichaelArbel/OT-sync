@@ -272,7 +272,7 @@ class Trainer(object):
 
 		#self.particles.data.data = 1.* self.true_particles
 		
-		#self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.01)
+		self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.01)
 		#mask = self.particles.data<0
 		#self.particles.data.data[mask]*=-1.
 		end = time.time()
