@@ -165,8 +165,10 @@ def data_loader_marker(data_path,name, dtype,device, conjugate=False):
 
 	Qrel = tr.tensor(Qrel, dtype=dtype,device=device).unsqueeze(1)    # do not assigne to gpu for now (this matrix can be huge)
 	Qrel = reshape_flat_tensor(Qrel)
+	
 	Qabs =  tr.tensor(Qabs, dtype=dtype, device=device).unsqueeze(1)
-	Qabs = Qabs[1:,:,:]
+	
+	#Qabs = Qabs[1:,:,:]
 	if conjugate:	
 		Qabs[:,:,1:]*=-1.
 
