@@ -13,7 +13,7 @@ with_edges_splits : True
 data_name : 'ShapeNet'
 data_path : '../data/'
 log_name : ShapeNet
-lr : 0.01
+lr : 0.001
 
 
 log_dir: 'D:/Data/OptSync'
@@ -34,7 +34,7 @@ kernel_cost : 'power_quaternion'
 with_weights : 1
 product_particles : 1
 num_particles : 1
-power : 1.5
+power : 1.2
 with_couplings : False
 weights_factor : .01
 #weights_factor: 1.
