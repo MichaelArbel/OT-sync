@@ -61,7 +61,8 @@ class Particles(nn.Module):
 		self.noise_level *=self.noise_decay
 	def weights(self):
 		if self.product_particles and self.with_couplings:
-			return self._weights**2,(self.coupling_strenght**2+10.)
+			return  self._weights**2,(self.coupling_strenght**2+10.)
+			
 		elif self.product_particles:
 			return self._weights**2
 		else:

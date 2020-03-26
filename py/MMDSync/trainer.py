@@ -103,6 +103,15 @@ class Trainer(object):
 			self.args.N = len(self.true_particles)
 			true_args = make_true_dict(self.args)
 
+		elif self.args.model=='real_data' and self.args.data_name=='blue_charis':
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx =dl.data_loader_blue_charis(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
+			self.args.N = len(self.true_particles)
+			true_args = make_true_dict(self.args)			
+		elif self.args.model=='new_data' and self.args.data_name=='blue_charis':
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx =dl.data_loader_new_datasets(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
+			self.args.N = len(self.true_particles)
+			true_args = make_true_dict(self.args)
+
 		else:
 			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles, self.true_weights, self.eval_idx = dl.data_loader_notredame(
 			self.args.data_path, self.args.data_name, self.dtype, self.device)
@@ -188,7 +197,7 @@ class Trainer(object):
 		#	return mmd.MMD_weighted(kernel, self.particles, self.RM_map, with_noise=self.args.with_noise)
 		#	return sinkhorn.SinkhornEvalAbs(self.particles, self.args.SH_eps, self.args.SH_max_iter, 'quaternion',self.eval_idx)
 
-	def train(self):
+	def train_time(self):
 		print("Starting Training Loop...")
 		start_time = time.time()
 		best_valid_loss = np.inf
@@ -199,6 +208,39 @@ class Trainer(object):
 			loss = self.train_iter(iteration)
 			#if loss < 0.158:
 			#	print(loss)
+			# if not np.isfinite(loss):
+			# 	break 
+			# if self.args.use_scheduler:
+			# 	#self.scheduler.step(loss)
+			# 	self.scheduler.step()
+			# if np.mod(iteration,self.args.noise_decay_freq)==0 and iteration>0:
+			# 	self.particles.update_noise_level()
+			# if np.mod(iteration, self.args.freq_eval)==0:
+			# 	with torch.no_grad():
+			# 		out = self.eval(iteration, loss,with_config=with_config)
+			# 	with_config=False
+			# 	if self.args.save==1:
+			# 		save_pickle(out, os.path.join(self.log_dir, 'data'), name =  'iter_'+ str(iteration).zfill(8))
+			# #save(self.writer,loss_val,self.particles,iteration,save_particles= save_particles)
+
+		end_time = time.time()
+		print("total time:   "  + str(end_time-start_time) )
+
+		return loss
+
+
+
+	def train(self):
+		print("Starting Training Loop...")
+		start_time = time.time()
+		best_valid_loss = np.inf
+		with_config = True
+		self.initialize()
+		for iteration in range(self.args.total_iters):
+			#scheduler.step()
+			loss = self.train_iter(iteration)
+			if loss < 0.158:
+				print(loss)
 			if not np.isfinite(loss):
 				break 
 			if self.args.use_scheduler:
@@ -214,7 +256,14 @@ class Trainer(object):
 					save_pickle(out, os.path.join(self.log_dir, 'data'), name =  'iter_'+ str(iteration).zfill(8))
 			#save(self.writer,loss_val,self.particles,iteration,save_particles= save_particles)
 
+		end_time = time.time()
+		print("total time:   "  + str(end_time-start_time) )
+
 		return loss
+
+
+
+
 
 	def initialize(self):
 		print('initiallizing particles')
@@ -274,7 +323,7 @@ class Trainer(object):
 
 		#self.particles.data.data = 1.* self.true_particles
 		
-		self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.01)
+		#self.particles.data.data = particles.add_noise_quaternion(self.prior,self.particles.data, 0.01)
 		#mask = self.particles.data<0
 		#self.particles.data.data[mask]*=-1.
 		end = time.time()
@@ -291,23 +340,18 @@ class Trainer(object):
 		#self.backtracking(loss)
 		self.update_gradient(loss,iteration)
 		#loss = self.mini_batch_iter(with_backward=True)
-		if loss> self.old_loss:
-			print('increasing loss')
+		#if loss> self.old_loss:
+		#	print('increasing loss')
 		#	self.optimizer.param_groups[0]['lr'] =0.5*self.optimizer.param_groups[0]['lr']
 		#	print('decreased lr')
 		self.old_loss = loss
 		self.optimizer.param_groups[0]['lr'] = self.args.lr/(1 + np.sqrt(iteration/self.args.decay_lr))
 		#if iteration==500:
 		#	self.optimizer.param_groups[0]['lr']*=0.1
-
-		if iteration==1264:
-			print('bug here')
 		end = time.time()
-
 		print('Iteration: '+ str(iteration) + ' loss: ' + str(round(loss,3))  + ' lr ' + str(self.optimizer.param_groups[0]['lr']) + ' in: ' + str(end-start) +'s' )
-
-
 		return loss
+
 	def update_gradient(self,loss,iteration):
 		if self.args.with_backtracking:
 			self.backtracking(loss)
@@ -406,12 +450,12 @@ class Trainer(object):
 		out['time'] = time.time()
 		out['iteration'] = iteration
 		if self.args.with_couplings:
-			w, c = self.particles.weights()
-			out['couplings'] = c.cpu().detach().numpy()
+			ww = self.particles.weights()
+			#out['couplings'] = c.cpu().detach().numpy()
 		else:
-			w = self.particles.weights()
+			ww = self.particles.weights()
 		out['eval_RM_dist'] =   self.mini_batch_iter_eval_loss()
-		out['weights'] = w.cpu().detach().numpy()
+		out['weights'] = ww.cpu().detach().numpy()
 		#if self.args.model =='synthetic':
 		out['eval_dist'] =   self.eval_loss_abs(self.true_particles, self.true_weights).item()
 		out['avg_min_dist'],out['median_min_dist'],out['mode_weights'] = self.best_dist() 

@@ -165,9 +165,7 @@ def data_loader_marker(data_path,name, dtype,device, conjugate=False):
 
 	Qrel = tr.tensor(Qrel, dtype=dtype,device=device).unsqueeze(1)    # do not assigne to gpu for now (this matrix can be huge)
 	Qrel = reshape_flat_tensor(Qrel)
-	
 	Qabs =  tr.tensor(Qabs, dtype=dtype, device=device).unsqueeze(1)
-	
 	#Qabs = Qabs[1:,:,:]
 	if conjugate:	
 		Qabs[:,:,1:]*=-1.
@@ -249,6 +247,18 @@ def data_loader_shapenet(data_path,name, dtype,device, conjugate=False):
 
 	# test error to gt
 
+	N,P,_ = Qabs.shape
+	Nrel, Prel, _ = Qrel.shape
+	wabs = (1./P) * tr.ones([N, P], dtype=dtype, device = device )
+	wrel = (1./Prel) * tr.ones([Nrel, Prel], dtype=dtype, device = device )
+
+	true_args = make_true_dict(args)
+	# true_prior = get_prior(true_args, dtype, device)
+	# true_RM_map = get_true_rm_map(true_args, edges,dtype,device)
+	# rm, rm_weights = true_RM_map(Qabs, wabs , edges)
+	# dist = utils.quaternion_geodesic_distance(rm,Qrel)
+	# min_dist,_ = torch.min(dist,dim=-1)
+	# avg_best_dist = torch.mean(min_dist,dim=-1)
 
 
 
@@ -309,6 +319,106 @@ def reshape_flat_tensor(Qrel):
 
 
 
+def data_loader_blue_charis( data_path,name, dtype,device, conjugate=False):
+
+	edges_path = os.path.join(data_path,name+'_Edges.txt')
+	edges = np.genfromtxt(edges_path, delimiter=',')
+	edges = (np.array(edges)-1).astype('int64')
+
+	Qabs_path = os.path.join(data_path,name+'_Qabs.txt')
+	Qabs = np.genfromtxt(Qabs_path, delimiter=',')
+
+	Qrel_path = os.path.join(data_path,name+'_Qrel.txt')
+	Qrel = np.genfromtxt(Qrel_path, delimiter=',')
+
+	Qrel = tr.tensor(Qrel, dtype=dtype,device=device).unsqueeze(1)    # do not assigne to gpu for now (this matrix can be huge)
+	Qrel = reshape_flat_tensor(Qrel)
+	Qabs =  tr.tensor(Qabs, dtype=dtype, device=device).unsqueeze(1)
+	if conjugate:	
+		Qabs[:,:,1:]*=-1.
+
+
+	G,C = make_graphs(edges)
+
+
+
+	#I = np.array(list(G.edges()))
+	degree = np.array((G.degree()))
+	max_index = np.argmax(degree[:,1])
+
+	G, edges, Qabs = swap_nodes(G,edges,Qabs,0,max_index)
+
+
+	# Additional formatting  : N x P x d 
+	N,P,_ = Qabs.shape
+	Nrel, Prel, _ = Qrel.shape
+	# rotate all absolute poses so that the first camera becomes the reference
+	Qabs = utils.quaternion_X_times_Y_inv(Qabs,Qabs[0,:,:].unsqueeze(0).repeat(N,1,1))
+
+	mask = Qabs[:,:,0]<0
+	Qabs[mask]*=-1.
+
+	mask = Qrel[:,:,0]<0
+	Qrel[mask]*=-1.
+
+
+
+	wabs = (1./P) * tr.ones([N, P], dtype=dtype, device = device )
+	wrel = (1./Prel) * tr.ones([Nrel, Prel], dtype=dtype, device = device )
+	if nx.is_connected(C):
+		return edges, G, Qrel, wrel, Qabs, wabs,None
+
+
+
+
+def data_loader_new_datasets( data_path,name, dtype,device, conjugate=False):
+
+	edges_path = os.path.join(data_path,name,'Edges.txt')
+	edges = np.genfromtxt(edges_path, delimiter=',')
+	edges = (np.array(edges)-1).astype('int64')
+
+	Qabs_path = os.path.join(data_path,name,'Qabs.txt')
+	Qabs = np.genfromtxt(Qabs_path, delimiter=',')
+
+	Qrel_path = os.path.join(data_path,name,'Qrel.txt')
+	Qrel = np.genfromtxt(Qrel_path, delimiter=',')
+
+	Qrel = tr.tensor(Qrel, dtype=dtype,device=device).unsqueeze(1)    # do not assigne to gpu for now (this matrix can be huge)
+	Qrel = reshape_flat_tensor(Qrel)
+	Qabs =  tr.tensor(Qabs, dtype=dtype, device=device).unsqueeze(1)
+	if conjugate:	
+		Qabs[:,:,1:]*=-1.
+
+
+	G,C = make_graphs(edges)
+
+
+
+	#I = np.array(list(G.edges()))
+	degree = np.array((G.degree()))
+	max_index = np.argmax(degree[:,1])
+
+	G, edges, Qabs = swap_nodes(G,edges,Qabs,0,max_index)
+
+
+	# Additional formatting  : N x P x d 
+	N,P,_ = Qabs.shape
+	Nrel, Prel, _ = Qrel.shape
+	# rotate all absolute poses so that the first camera becomes the reference
+	Qabs = utils.quaternion_X_times_Y_inv(Qabs,Qabs[0,:,:].unsqueeze(0).repeat(N,1,1))
+
+	mask = Qabs[:,:,0]<0
+	Qabs[mask]*=-1.
+
+	mask = Qrel[:,:,0]<0
+	Qrel[mask]*=-1.
+
+
+
+	wabs = (1./P) * tr.ones([N, P], dtype=dtype, device = device )
+	wrel = (1./Prel) * tr.ones([Nrel, Prel], dtype=dtype, device = device )
+	if nx.is_connected(C):
+		return edges, G, Qrel, wrel, Qabs, wabs,None
 
 
 
