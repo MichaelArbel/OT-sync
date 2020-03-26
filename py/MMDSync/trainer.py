@@ -107,7 +107,7 @@ class Trainer(object):
 			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx =dl.data_loader_blue_charis(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
 			self.args.N = len(self.true_particles)
 			true_args = make_true_dict(self.args)			
-		elif self.args.model=='new_data' and self.args.data_name=='blue_charis':
+		elif self.args.model=='new_data':
 			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx =dl.data_loader_new_datasets(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
 			self.args.N = len(self.true_particles)
 			true_args = make_true_dict(self.args)

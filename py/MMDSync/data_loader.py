@@ -386,6 +386,7 @@ def data_loader_new_datasets( data_path,name, dtype,device, conjugate=False):
 	Qrel = tr.tensor(Qrel, dtype=dtype,device=device).unsqueeze(1)    # do not assigne to gpu for now (this matrix can be huge)
 	Qrel = reshape_flat_tensor(Qrel)
 	Qabs =  tr.tensor(Qabs, dtype=dtype, device=device).unsqueeze(1)
+	forbidden_mask = tr.sum(Qabs**2,dim=2)<0.5 
 	if conjugate:	
 		Qabs[:,:,1:]*=-1.
 
@@ -400,7 +401,6 @@ def data_loader_new_datasets( data_path,name, dtype,device, conjugate=False):
 
 	G, edges, Qabs = swap_nodes(G,edges,Qabs,0,max_index)
 
-
 	# Additional formatting  : N x P x d 
 	N,P,_ = Qabs.shape
 	Nrel, Prel, _ = Qrel.shape
@@ -412,8 +412,6 @@ def data_loader_new_datasets( data_path,name, dtype,device, conjugate=False):
 
 	mask = Qrel[:,:,0]<0
 	Qrel[mask]*=-1.
-
-
 
 	wabs = (1./P) * tr.ones([N, P], dtype=dtype, device = device )
 	wrel = (1./Prel) * tr.ones([Nrel, Prel], dtype=dtype, device = device )
