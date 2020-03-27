@@ -34,7 +34,8 @@ class Trainer(object):
 		elif args.device==-2:
 			self.device = 'cpu'
 		self.dtype = get_dtype(args)
-		
+		if self.args.model=='new_data':
+			self.args.log_name = self.args.data_name
 		self.log_dir = make_log_dir(args)
 
 		if args.log_in_file:
@@ -108,15 +109,30 @@ class Trainer(object):
 			self.args.N = len(self.true_particles)
 			true_args = make_true_dict(self.args)			
 		elif self.args.model=='new_data':
+			self.args.conjugate = True
 			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx =dl.data_loader_new_datasets(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
 			self.args.N = len(self.true_particles)
+			self._GT_RM,avg_best_dist_conj = self.make_gt_rm()
+			self.args.conjugate = False
+			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx =dl.data_loader_new_datasets(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
+			self.args.N = len(self.true_particles)
+			self._GT_RM,avg_best_dist = self.make_gt_rm()
+			if avg_best_dist_conj < avg_best_dist:
+				self.args.conjugate = True
+				self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles , self.true_weights,self.eval_idx =dl.data_loader_new_datasets(self.args.data_path, self.args.data_name, self.dtype,self.device,conjugate=self.args.conjugate)
+				self.args.N = len(self.true_particles)
+				self._GT_RM,avg_best_dist = self.make_gt_rm()
 			true_args = make_true_dict(self.args)
-
+			self.eval_idx = torch.sum(self.true_particles**2,dim=2)>0.5
+			self.eval_idx = self.eval_idx[:,0]
+		
 		else:
 			self.edges, self.G, self.true_RM, self.true_RM_weights, self.true_particles, self.true_weights, self.eval_idx = dl.data_loader_notredame(
 			self.args.data_path, self.args.data_name, self.dtype, self.device)
 			self.args.N = len(self.true_particles)
 			#self.true_weights = (1./true_args.num_particles)*torch.ones([true_args.N, true_args.num_particles], dtype=self.true_particles.dtype, device = self.true_particles.device )
+		
+
 		self._GT_RM,avg_best_dist = self.make_gt_rm()
 		if self.args.GT_mode:
 			self.true_RM[:,0,:] = self._GT_RM[:,0,:]
@@ -469,7 +485,8 @@ class Trainer(object):
 
 		return out
 	def best_dist(self):
-		dist = utils.quaternion_geodesic_distance(self.true_particles,self.particles.data)
+		dist = utils.quaternion_geodesic_distance(self.true_particles[self.eval_idx,:,:],self.particles.data[self.eval_idx,:,:])
+		
 		if self.args.product_particles:
 			N_GT = self.true_particles.shape[1]
 			min_dist,_ = torch.min(dist,dim=-1)
@@ -486,6 +503,8 @@ class Trainer(object):
 		else:
 			N_GT = self.true_particles.shape[1]
 			avg_best_dist = torch.mean(dist[1:,:,:],dim=0)
+			median = np.median(dist[1:,:,:].detach().cpu().numpy(), axis = 0)
+			median_best_dist = np.min(median)
 			min_dist,idx = torch.min(avg_best_dist,dim=-1)
 			error = tr.abs(avg_best_dist-min_dist.unsqueeze(-1))
 			mask =  error < self.args.err_tol 
@@ -494,8 +513,6 @@ class Trainer(object):
 			avg_best_dist = tr.mean(min_dist).item()
 			#print('weight: '+ str(weights_mode))
 			#min_dist,_ = torch.min(avg_best_dist,dim=-1)
-			
-			median_best_dist =0.
 			#avg_best_dist = torch.mean(min_dist_ist)
 		
 		return avg_best_dist,median_best_dist,weights_mode
