@@ -1,0 +1,39 @@
+#### problem
+completeness : 0.1
+model : 'new_data'
+true_prior : 'gaussian'
+num_true_particles : 1
+true_product_particles : True
+true_rm_noise_level : -1.
+true_bernoulli_noise : -1.
+
+batch_size : 70000
+
+with_edges_splits : True
+#data_name : 'Montreal_Notre_Dame'
+data_path : '../data'
+#log_name : Montreal_Notre_Dame
+lr : 0.001
+log_dir : /nfs/gatsbystor/michaela/projects/OptSync/new_datasets
+
+dtype : '64'
+particles_type : 'quaternion'
+optimizer : 'SGD'
+prior : 'gaussian'
+loss : 'sinkhorn'
+
+# kernel_cost : 'power_quaternion'
+# with_weights : 1
+# product_particles : 1
+# num_particles : 20
+
+kernel_cost : 'power_quaternion'
+with_weights : 1
+product_particles : 0
+num_particles : 10
+power : 1.1
+with_couplings : False
+weights_factor : .1
+#weights_factor: 1.
+
+log_in_file : True
