@@ -1,0 +1,37 @@
+#### problem
+completeness : 0.1
+model : 'real_data'
+true_prior : 'gaussian'
+num_true_particles : 1
+true_product_particles : True
+true_rm_noise_level : -1.
+true_bernoulli_noise : -1.
+
+batch_size : 344
+
+with_edges_splits : True
+data_name : 'HerzJesuP25'
+data_path : '../data/'
+log_name : HerzJesuP25
+lr : 0.002
+
+
+dtype : '64'
+particles_type : 'quaternion'
+optimizer : 'SGD'
+prior : 'gaussian'
+loss : 'sinkhorn'
+
+
+
+
+
+kernel_cost : 'power_quaternion'
+with_weights : 1
+product_particles : 1
+num_particles : 1
+power : 1.5
+with_couplings : False
+weights_factor : .01
+
+

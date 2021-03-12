@@ -1,0 +1,7 @@
+python==3.6.2
+torch==1.2.0
+torchvision==0.4.0
+numpy==1.17.2
+yalm==0.15.46
+geomloss==0.2.3
+pandas==1.03
