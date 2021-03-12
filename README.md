@@ -87,7 +87,9 @@ python train.py --config_data=$CONFIG_FILE --log_dir=$LOG_DIR
 
 If using this code for research purposes, please cite:
 
-[1] T. Birdal,  M. Arbel 2 U. Simsekli, L. Guibas [*Synchronizing Probability Measures on Rotations via Optimal Transport*](https://openaccess.thecvf.com/content_CVPR_2020/papers/Birdal_Synchronizing_Probability_Measures_on_Rotations_via_Optimal_Transport_CVPR_2020_paper.pdf)
+[1] T. Birdal,  M. Arbel 2 U. Simsekli, L. Guibas 
+
+[*Synchronizing Probability Measures on Rotations via Optimal Transport*](https://openaccess.thecvf.com/content_CVPR_2020/papers/Birdal_Synchronizing_Probability_Measures_on_Rotations_via_Optimal_Transport_CVPR_2020_paper.pdf)
 
 ```
 @inproceedings{birdal2020synchronizing,
