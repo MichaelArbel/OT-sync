@@ -1,6 +1,8 @@
 # Synchronizing Probability Measures on Rotations via Optimal Transport
 
-This repository contains an implementation of the algorithm for synchronizing probability measure on rotations using Optimal Transport and provides scripts to reproduce the results of the [paper](https://openaccess.thecvf.com/content_CVPR_2020/papers/Birdal_Synchronizing_Probability_Measures_on_Rotations_via_Optimal_Transport_CVPR_2020_paper.pdf) published at [CVPR 2020](http://cvpr2020.thecvf.com/) .
+This repository contains a PyTorch implementation of the algorithm for synchronizing probability measure on rotations using Optimal Transport and provides scripts to reproduce the results of the [paper](https://openaccess.thecvf.com/content_CVPR_2020/papers/Birdal_Synchronizing_Probability_Measures_on_Rotations_via_Optimal_Transport_CVPR_2020_paper.pdf) published at [CVPR 2020](http://cvpr2020.thecvf.com/) .
+
+[Tolga Birdal](https://www.tbirdal.me), [Michael Arbel](https://michaelarbel.github.io/), [Umut Şimşekli](https://www.di.ens.fr/umut.simsekli/), [Leonidas J. Guibas](https://geometry.stanford.edu/member/guibas/)
 
 ![Synchornization](spmrot.jpg) 
 
