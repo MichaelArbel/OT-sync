@@ -43,8 +43,6 @@ pip install -r requirements.txt
 
 
 
-
-
 ## Resources
 
 ### Data
@@ -52,7 +50,7 @@ pip install -r requirements.txt
 The data directory contains the following datasets : 'CastleP19', 'CastleP30', 'EntyP10', 'FountainP11', 'HerzJesuP25', 'HerzJesuP8'
 
 ### Config files
-The config files to reproduce the main experiments in the paper are in ```core/configs/``` 
+The config files to reproduce the main experiments in the paper are in ```core/configs/``` . Note that there might be slight differences due to the tuning of the parameters.
 
 
 ### Hardware
